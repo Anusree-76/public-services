@@ -8,6 +8,8 @@ import uuid
 import os
 import math
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 app = Flask(__name__, static_folder='public', static_url_path='')
 CORS(app)
 
