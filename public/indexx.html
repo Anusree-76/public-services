@@ -3100,7 +3100,20 @@
         }
 
         async function searchWorkers() {
-            const serviceType = selectedService || 'all';
+            let serviceType = selectedService || 'all';
+
+            // If user typed something but didn't select from dropdown, try to find a match
+            if (serviceType === 'all') {
+                const searchInput = document.getElementById('searchServiceInput').value.toLowerCase().trim();
+                if (searchInput) {
+                    const match = Object.entries(servicesData).find(([key, data]) =>
+                        data.displayName.toLowerCase().includes(searchInput) || key.includes(searchInput)
+                    );
+                    if (match) serviceType = match[0];
+                    else serviceType = searchInput.replace(/\s+/g, '_'); // Custom service fallback
+                }
+            }
+
             const maxDistance = parseInt(document.getElementById('maxDistance').value) || 10;
             const sortBy = document.getElementById('sortBy').value;
 

@@ -340,10 +340,12 @@ def get_workers():
             query += ''' AND (
                 LOWER(w.service) = LOWER(?) 
                 OR LOWER(w.service) LIKE LOWER(?)
+                OR LOWER(w.service) LIKE LOWER(?)
                 OR LOWER(REPLACE(w.service, '_', ' ')) LIKE LOWER(?)
             )'''
             params.append(service)
             params.append('%_' + service)
+            params.append('%' + service + '%')
             params.append('%' + service + '%')
             
         workers = conn.execute(query, params).fetchall()
