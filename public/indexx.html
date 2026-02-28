@@ -3337,7 +3337,7 @@
         // ==================== DASHBOARDS ====================
         async function loadUserDashboard() {
             try {
-                const bookings = await apiCall('/bookings/user');
+                const bookings = await apiCall(`/bookings/user?userId=${currentUser._id}`);
                 document.getElementById('userTotalBookings').textContent = bookings.length;
                 document.getElementById('userUpcoming').textContent = bookings.filter(b => b.status === 'confirmed').length;
                 document.getElementById('userCompleted').textContent = bookings.filter(b => b.status === 'completed').length;

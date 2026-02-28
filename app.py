@@ -233,10 +233,19 @@ def login():
             if not user:
                 return jsonify({'error': 'User not found. Please register.'}), 404
 
+        # Return user details
+        user_res = {'id': user['id'], '_id': user['id'], 'name': user['name'], 'email': user['email'], 'role': user['role']}
+        
+        # If worker, attach workerId
+        if role == 'worker':
+            w = conn.execute('SELECT id FROM workers WHERE user_id = ?', (user['id'],)).fetchone()
+            if w:
+                user_res['workerId'] = w['id']
+
         return jsonify({
             'success': True, 
             'token': str(uuid.uuid4().hex),
-            'user': {'id': user['id'], '_id': user['id'], 'name': user['name'], 'email': user['email'], 'role': user['role']}
+            'user': user_res
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
