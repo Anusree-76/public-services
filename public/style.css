@@ -1,0 +1,6 @@
+body{ font-family:Arial; background:#eef2ff; margin:0; }
+header{ background:#1f2937; color:white; padding:15px; text-align:center; }
+input{ padding:8px; width:200px; }
+button{ padding:8px 14px; background:#fbbf24; border:none; font-weight:bold; cursor:pointer; }
+#map{ height:300px; }
+.card{ background:white; padding:15px; margin:10px; border-radius:10px; box-shadow:0 0 10px #ccc; }

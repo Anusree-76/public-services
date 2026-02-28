@@ -1,0 +1,3649 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Local Services Finder</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #0f172a;
+            --gray-200: #e2e8f0;
+            --gray-600: #475569;
+            --light: #f8fafc;
+            --gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-2: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --gradient-3: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+        }
+
+        body {
+            background: var(--light);
+            color: var(--dark);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated Background */
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: linear-gradient(-45deg, #667eea, #764ba2, #f093fb, #f5576c, #4facfe, #00f2fe);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        /* Floating Services with enhanced animation */
+        .floating-service {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(12px);
+            border-radius: 16px;
+            padding: 1rem 1.5rem;
+            color: white;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            animation: float 8s ease-in-out infinite, glow 3s ease-in-out infinite alternate;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .floating-service:hover {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .floating-service:nth-child(1) {
+            left: 5%;
+            top: 15%;
+            animation-delay: 0s, 0s;
+        }
+
+        .floating-service:nth-child(2) {
+            left: 80%;
+            top: 20%;
+            animation-delay: -2s, -1s;
+        }
+
+        .floating-service:nth-child(3) {
+            left: 10%;
+            top: 70%;
+            animation-delay: -4s, -2s;
+        }
+
+        .floating-service:nth-child(4) {
+            left: 75%;
+            top: 75%;
+            animation-delay: -6s, -3s;
+        }
+
+        .floating-service:nth-child(5) {
+            left: 45%;
+            top: 10%;
+            animation-delay: -1s, -0.5s;
+        }
+
+        .floating-service:nth-child(6) {
+            left: 25%;
+            top: 85%;
+            animation-delay: -3s, -1.5s;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0) rotate(0deg);
+            }
+
+            50% {
+                transform: translateY(-20px) rotate(2deg);
+            }
+        }
+
+        @keyframes glow {
+            from {
+                box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+            }
+
+            to {
+                box-shadow: 0 0 40px rgba(255, 255, 255, 0.4), 0 0 60px rgba(99, 102, 241, 0.3);
+            }
+        }
+
+        /* Modals */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(12px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            opacity: 0;
+            transition: all 0.4s ease;
+            padding: 1rem;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 24px;
+            padding: 2.5rem;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            transform: scale(0.8) translateY(50px);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        .modal-overlay.active .modal {
+            transform: scale(1) translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .close-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: var(--gray-200);
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.5rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-btn:hover {
+            transform: rotate(90deg) scale(1.1);
+            background: var(--danger);
+            color: white;
+        }
+
+        /* Navigation with glass effect */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 1rem 2rem;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+            animation: slideDown 0.5s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+            }
+
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            font-size: 1.75rem;
+            font-weight: 800;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.8;
+            }
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .user-greeting {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 50px;
+            font-weight: 600;
+            color: var(--primary);
+            animation: fadeIn 0.5s ease;
+        }
+
+        .user-avatar-nav {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--primary);
+            animation: borderPulse 2s infinite;
+        }
+
+        @keyframes borderPulse {
+
+            0%,
+            100% {
+                border-color: var(--primary);
+            }
+
+            50% {
+                border-color: var(--gradient-2);
+            }
+        }
+
+        .nav-btn {
+            padding: 0.6rem 1.25rem;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+            background: transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(99, 102, 241, 0.2);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .nav-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .nav-btn:hover {
+            color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .nav-btn.primary {
+            background: var(--gradient-1);
+            color: white;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        }
+
+        .nav-btn.primary:hover {
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .nav-btn.logout {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+
+        /* Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 100px 2rem 2rem;
+            min-height: 100vh;
+        }
+
+        /* Hero with text animation */
+        .hero {
+            text-align: center;
+            padding: 4rem 0;
+            color: white;
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 800;
+            margin-bottom: 1rem;
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            animation: textGlow 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes textGlow {
+            from {
+                text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+            }
+
+            to {
+                text-shadow: 0 0 40px rgba(255, 255, 255, 0.6), 0 0 60px rgba(99, 102, 241, 0.4);
+            }
+        }
+
+        .hero p {
+            font-size: clamp(1.1rem, 2vw, 1.35rem);
+            opacity: 0.95;
+            max-width: 700px;
+            margin: 0 auto;
+            animation: fadeInUp 1s ease 0.5s both;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Role Cards with 3D effect */
+        .role-selection {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 3rem auto;
+            max-width: 900px;
+            perspective: 1000px;
+        }
+
+        .role-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 24px;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+            transform-style: preserve-3d;
+        }
+
+        .role-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transform: rotate(45deg);
+            transition: all 0.5s;
+            opacity: 0;
+        }
+
+        .role-card:hover::before {
+            animation: shine 0.5s ease-in-out;
+        }
+
+        @keyframes shine {
+            0% {
+                transform: translateX(-100%) translateY(-100%) rotate(45deg);
+                opacity: 0;
+            }
+
+            50% {
+                opacity: 1;
+            }
+
+            100% {
+                transform: translateX(100%) translateY(100%) rotate(45deg);
+                opacity: 0;
+            }
+        }
+
+        .role-card:hover {
+            transform: translateY(-15px) rotateX(5deg);
+            border-color: var(--primary);
+            box-shadow: 0 25px 50px -12px rgba(99, 102, 241, 0.4);
+        }
+
+        .role-icon {
+            width: 100px;
+            height: 100px;
+            background: var(--gradient-1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            font-size: 3rem;
+            color: white;
+            box-shadow: 0 15px 35px rgba(99, 102, 241, 0.4);
+            animation: iconFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes iconFloat {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        /* Forms */
+        .form-container {
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 2.5rem;
+            background: white;
+            border-radius: 24px;
+            box-shadow: var(--shadow-lg);
+            display: none;
+            animation: slideUp 0.5s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .form-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+            transform: scale(1.02);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+
+        /* Aadhaar Input */
+        .aadhaar-input {
+            letter-spacing: 0.5rem;
+            font-family: monospace;
+            font-size: 1.1rem;
+        }
+
+        /* Profile Photo */
+        .profile-photo-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding: 2rem;
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            border-radius: 20px;
+            border: 2px dashed var(--primary);
+        }
+
+        .profile-photo-preview {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+            overflow: hidden;
+            border: 4px solid white;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .profile-photo-preview:hover {
+            transform: scale(1.05);
+        }
+
+        .profile-photo-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .photo-upload-btn {
+            padding: 0.875rem 1.75rem;
+            background: var(--gradient-1);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .photo-upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        /* ID Proof Upload Section */
+        .id-proof-section {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 2px dashed var(--warning);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .id-proof-preview {
+            width: 100%;
+            max-width: 300px;
+            height: 200px;
+            background: white;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 1rem auto;
+            overflow: hidden;
+            border: 2px solid var(--gray-200);
+        }
+
+        .id-proof-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .verification-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .verification-status.pending {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+        }
+
+        .verification-status.verified {
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--success);
+        }
+
+        .verification-status.failed {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+
+        /* Gender */
+        .gender-options {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .gender-option {
+            flex: 1;
+            padding: 1rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 12px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .gender-option:hover {
+            transform: translateY(-2px);
+        }
+
+        .gender-option.selected {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
+        }
+
+        .gender-option input {
+            display: none;
+        }
+
+        /* Category Tags */
+        .category-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .category-tag {
+            padding: 0.75rem 1.25rem;
+            background: #f1f5f9;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            font-weight: 500;
+        }
+
+        .category-tag:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .category-tag.selected {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary-dark);
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        /* Time Slots - 24 hour format */
+        .time-slots-container {
+            border: 2px solid var(--gray-200);
+            border-radius: 16px;
+            padding: 1rem;
+            max-height: 400px;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .slot-card {
+            padding: 1rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .slot-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .slot-card.selected {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: var(--primary);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
+        }
+
+        .slot-time {
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .slot-price-input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .slot-checkbox {
+            display: none;
+        }
+
+        /* Buttons */
+        .btn {
+            width: 100%;
+            padding: 1rem 1.5rem;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:active::after {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn-primary {
+            background: var(--gradient-1);
+            color: white;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+        }
+
+        .btn-secondary {
+            background: var(--gray-200);
+            color: var(--dark);
+        }
+
+        .btn-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.25rem;
+            background: white;
+            border: 2px solid var(--gray-200);
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-back:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+            transform: translateX(-5px);
+        }
+
+        /* Search */
+        .search-interface {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .search-bar {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 20px;
+            box-shadow: var(--shadow-lg);
+            margin-bottom: 1.5rem;
+        }
+
+        .search-row {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        .search-field {
+            flex: 1;
+            min-width: 200px;
+            position: relative;
+        }
+
+        .search-field label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .search-field input,
+        .search-field select {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border: 2px solid var(--gray-200);
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .search-field input:focus,
+        .search-field select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+        }
+
+        /* Service List Dropdown */
+        .service-list-container {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 2px solid var(--gray-200);
+            border-radius: 12px;
+            background: white;
+            margin-top: 0.5rem;
+        }
+
+        .service-list-item {
+            padding: 0.875rem 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border-bottom: 1px solid #f1f5f9;
+            transition: all 0.2s ease;
+        }
+
+        .service-list-item:hover {
+            background: rgba(99, 102, 241, 0.1);
+            padding-left: 1.5rem;
+        }
+
+        .service-list-item.selected {
+            background: rgba(99, 102, 241, 0.2);
+            color: var(--primary);
+        }
+
+        /* Worker Cards with hover effects */
+        .workers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .worker-card {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            animation: fadeInUp 0.5s ease;
+        }
+
+        .worker-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        .worker-header {
+            background: var(--gradient-1);
+            padding: 1.5rem;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .worker-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .worker-avatar {
+            width: 90px;
+            height: 90px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            animation: avatarPulse 2s infinite;
+        }
+
+        @keyframes avatarPulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+            }
+
+            50% {
+                box-shadow: 0 0 0 15px rgba(255, 255, 255, 0);
+            }
+        }
+
+        .worker-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .badges {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.4rem 0.875rem;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .worker-body {
+            padding: 1.5rem;
+        }
+
+        .worker-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+        }
+
+        .info-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: var(--gray-600);
+        }
+
+        .info-icon {
+            width: 32px;
+            height: 32px;
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+            font-size: 1.1rem;
+        }
+
+        .price-tag {
+            display: inline-flex;
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--success);
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-weight: 700;
+            animation: priceGlow 2s infinite;
+        }
+
+        @keyframes priceGlow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 5px rgba(34, 197, 94, 0.3);
+            }
+
+            50% {
+                box-shadow: 0 0 20px rgba(34, 197, 94, 0.6);
+            }
+        }
+
+        .worker-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 0.875rem;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-call {
+            background: #f0fdf4;
+            color: var(--success);
+        }
+
+        .btn-whatsapp {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .btn-book {
+            background: var(--gradient-1);
+            color: white;
+            flex: 2;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-book:hover {
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+        }
+
+        /* Dashboard */
+        .dashboard,
+        .worker-dashboard,
+        .admin-interface {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .dashboard-header {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 16px;
+            box-shadow: var(--shadow-lg);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: countUp 0.5s ease;
+        }
+
+        @keyframes countUp {
+            from {
+                opacity: 0;
+                transform: scale(0.5);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .bookings-list {
+            background: white;
+            border-radius: 20px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .booking-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem;
+            border-bottom: 1px solid #f1f5f9;
+            transition: all 0.3s ease;
+        }
+
+        .booking-item:hover {
+            background: rgba(99, 102, 241, 0.05);
+            border-radius: 12px;
+        }
+
+        .booking-status {
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-confirmed {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--success);
+        }
+
+        .status-completed {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--primary);
+        }
+
+        .status-cancelled {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+
+        .status-pending {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning);
+        }
+
+        /* Admin */
+        .admin-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .admin-tab {
+            padding: 0.875rem 1.5rem;
+            background: white;
+            border: 2px solid var(--gray-200);
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .admin-tab:hover {
+            transform: translateY(-2px);
+        }
+
+        .admin-tab.active {
+            background: var(--gradient-1);
+            color: white;
+            border-color: transparent;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .admin-table {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+        }
+
+        th,
+        td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        th {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            font-weight: 600;
+            color: var(--gray-600);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
+
+        .btn-small {
+            padding: 0.4rem 0.875rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-small:hover {
+            transform: scale(1.05);
+        }
+
+        .btn-verify {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--success);
+        }
+
+        .btn-delete {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+        }
+
+        /* Filter Tags */
+        .filter-tags {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-tag {
+            padding: 0.5rem 1rem;
+            background: white;
+            border-radius: 50px;
+            cursor: pointer;
+            border: 2px solid var(--gray-200);
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .filter-tag:hover {
+            transform: translateY(-2px);
+        }
+
+        .filter-tag.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        /* Map */
+        .map-container {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+            font-weight: 600;
+            cursor: pointer;
+            border: 2px dashed var(--primary);
+            transition: all 0.3s ease;
+        }
+
+        .map-container:hover {
+            transform: scale(1.02);
+        }
+
+        .map-container.captured {
+            border-style: solid;
+            border-color: var(--success);
+            background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+            color: var(--success);
+            animation: successPulse 2s infinite;
+        }
+
+        @keyframes successPulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+            }
+
+            50% {
+                box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
+            }
+        }
+
+        /* Alerts */
+        .alert {
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            animation: slideIn 0.5s ease;
+        }
+
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid var(--warning);
+            color: #92400e;
+        }
+
+        .alert-danger {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--danger);
+            color: #991b1b;
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .toast {
+            background: white;
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            animation: slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border-left: 4px solid;
+            min-width: 300px;
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%) scale(0.8);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .toast.success {
+            border-left-color: var(--success);
+        }
+
+        .toast.error {
+            border-left-color: var(--danger);
+        }
+
+        .toast.warning {
+            border-left-color: var(--warning);
+        }
+
+        /* Loading */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9998;
+            flex-direction: column;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid var(--gray-200);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--gray-600);
+            grid-column: 1 / -1;
+        }
+
+        .empty-state-icon {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-20px);
+            }
+        }
+
+        /* Utility */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            cursor: pointer;
+        }
+
+        .toggle-switch.active {
+            background: var(--success) !important;
+        }
+
+        .toggle-switch.active div {
+            transform: translateX(28px) !important;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 90px 1rem 1rem;
+            }
+
+            .role-selection {
+                grid-template-columns: 1fr;
+            }
+
+            .workers-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .search-row {
+                flex-direction: column;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .gender-options {
+                flex-direction: column;
+            }
+
+            .time-slots-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-dark);
+        }
+
+        /* AI Verification Animation */
+        .ai-scanning {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ai-scanning::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.3), transparent);
+            animation: scan 2s infinite;
+        }
+
+        @keyframes scan {
+            to {
+                left: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Background -->
+    <div class="bg-animation">
+        <div class="floating-service">⚡ Electrician</div>
+        <div class="floating-service">🚿 Plumber</div>
+        <div class="floating-service">📚 Teacher</div>
+        <div class="floating-service">🔧 Mechanic</div>
+        <div class="floating-service">🚗 Driver</div>
+        <div class="floating-service">👨‍🍳 Chef</div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p style="color: var(--gray-600); font-weight: 600; margin-top: 1rem;">Processing...</p>
+    </div>
+
+    <!-- Auth Modal -->
+    <div id="authModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">🔑 Login / Register</h2>
+                <button class="close-btn" onclick="closeAuthModal()">×</button>
+            </div>
+            <div class="form-group">
+                <label>Full Name *</label>
+                <input type="text" id="authName" placeholder="Enter your full name">
+            </div>
+            <div class="form-group">
+                <label>Phone Number *</label>
+                <input type="tel" id="authPhone" placeholder="+91 9876543210">
+            </div>
+            <div class="form-group">
+                <label>I am a *</label>
+                <select id="authRole" onchange="handleAuthRoleChange()">
+                    <option value="user">Customer (Looking for services)</option>
+                    <option value="worker">Service Provider</option>
+                    <option value="admin">Administrator</option>
+                </select>
+            </div>
+
+            <!-- Admin specific fields -->
+            <div id="adminAuthSection" style="display: none;">
+                <div class="form-group">
+                    <label>Admin Username *</label>
+                    <input type="text" id="authAdminEmail" placeholder="Enter admin username">
+                </div>
+                <div class="form-group">
+                    <label>Password *</label>
+                    <input type="password" id="authAdminPassword" placeholder="Enter password">
+                </div>
+            </div>
+
+            <button class="btn btn-primary" id="authContinueBtn" onclick="handleAuth()">Continue →</button>
+        </div>
+    </div>
+
+    <!-- Booking Modal -->
+    <div id="bookingModal" class="modal-overlay" onclick="closeBookingModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2 class="modal-title">📅 Book Service</h2>
+                <button class="close-btn" onclick="closeBookingModal()">×</button>
+            </div>
+            <div id="bookingContent"></div>
+        </div>
+    </div>
+
+    <!-- Review Modal -->
+    <div id="reviewModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title">⭐ Rate Your Experience</h2>
+                <button class="close-btn" onclick="closeReviewModal()">×</button>
+            </div>
+            <div style="text-align: center; margin: 1.5rem 0;">
+                <span class="review-star"
+                    style="font-size: 2.5rem; cursor: pointer; color: var(--gray-200); transition: all 0.3s;"
+                    onclick="setRating(1)">★</span>
+                <span class="review-star"
+                    style="font-size: 2.5rem; cursor: pointer; color: var(--gray-200); transition: all 0.3s;"
+                    onclick="setRating(2)">★</span>
+                <span class="review-star"
+                    style="font-size: 2.5rem; cursor: pointer; color: var(--gray-200); transition: all 0.3s;"
+                    onclick="setRating(3)">★</span>
+                <span class="review-star"
+                    style="font-size: 2.5rem; cursor: pointer; color: var(--gray-200); transition: all 0.3s;"
+                    onclick="setRating(4)">★</span>
+                <span class="review-star"
+                    style="font-size: 2.5rem; cursor: pointer; color: var(--gray-200); transition: all 0.3s;"
+                    onclick="setRating(5)">★</span>
+            </div>
+            <div class="form-group">
+                <label>Your Review (Optional)</label>
+                <textarea id="reviewText" rows="3" placeholder="Share your experience..."></textarea>
+            </div>
+            <button class="btn btn-primary" onclick="submitReview()">Submit Review ⭐</button>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav>
+        <div class="logo">🔧 SmartLocal</div>
+        <div class="nav-links">
+            <div id="userGreeting" class="user-greeting hidden">
+                <img id="navUserAvatar" class="user-avatar-nav" src="" alt="">
+                <span id="navUserName">User</span>
+            </div>
+            <button class="nav-btn" onclick="showHome()">🏠 Home</button>
+            <button id="dashboardBtn" class="nav-btn hidden" onclick="showDashboard()">📊 Dashboard</button>
+            <button id="authBtn" class="nav-btn primary" onclick="showAuthModal()">👤 Login</button>
+            <button id="logoutBtn" class="nav-btn logout hidden" onclick="logout()">🚪 Logout</button>
+        </div>
+    </nav>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="container">
+        <!-- Hero -->
+        <div id="heroSection" class="hero">
+            <h1>Find Trusted Local Services</h1>
+            <p>Connect with verified professionals in your area. Book appointments, compare prices, and get quality
+                service at your doorstep.</p>
+        </div>
+
+        <!-- Role Selection -->
+        <div id="roleSelection" class="role-selection">
+            <div class="role-card" onclick="showWorkerForm()">
+                <div class="role-icon">👨‍🔧</div>
+                <h3>I'm a Service Provider</h3>
+                <p>Register your services, manage bookings, and grow your business with our platform.</p>
+            </div>
+            <div class="role-card" onclick="showUserSearch()">
+                <div class="role-icon" style="background: var(--gradient-2);">🔍</div>
+                <h3>I'm Looking for Services</h3>
+                <p>Find reliable workers near you. Compare prices, read reviews, and book instantly.</p>
+            </div>
+        </div>
+
+        <!-- Worker Registration Form -->
+        <div id="workerForm" class="form-container">
+            <button class="btn-back" onclick="showHome()">← Back to Home</button>
+
+            <div class="form-header">
+                <h2>Register as Service Provider</h2>
+                <p>Join our network of trusted professionals</p>
+            </div>
+
+            <div class="alert alert-warning">
+                <span style="font-size: 1.5rem;">⚠️</span>
+                <div>
+                    <strong>Verification Required:</strong> All registrations are verified using AI. False information
+                    will result in permanent ban.
+                </div>
+            </div>
+
+            <div id="duplicateAlert" class="alert alert-danger hidden">
+                <span style="font-size: 1.5rem;">🚫</span>
+                <div>
+                    <strong>Already Registered!</strong>
+                    <p style="margin: 0; font-size: 0.9rem;">This phone number or name is already registered.</p>
+                </div>
+            </div>
+
+            <form id="workerRegistrationForm" onsubmit="registerWorker(event)">
+                <!-- Profile Photo -->
+                <div class="profile-photo-section">
+                    <div class="profile-photo-preview" id="profilePhotoPreview">👤</div>
+                    <input type="file" id="profilePhoto" accept="image/*" capture="user" style="display:none"
+                        onchange="handlePhotoUpload(event, 'profile')">
+                    <button type="button" class="photo-upload-btn"
+                        onclick="document.getElementById('profilePhoto').click()">📸 Add Profile Photo</button>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Full Name *</label>
+                        <input type="text" id="workerName" required placeholder="Enter your full name"
+                            onblur="checkDuplicate()">
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number *</label>
+                        <input type="tel" id="workerPhone" required placeholder="+91 9876543210"
+                            onblur="checkDuplicate()">
+                    </div>
+                </div>
+
+                <!-- ID Proof Section with AI Verification -->
+                <div class="id-proof-section">
+                    <h3 style="margin-bottom: 1rem; color: var(--dark);">🆔 ID Verification (AI Powered)</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>ID Type *</label>
+                            <select id="idType" required onchange="handleIdTypeChange()">
+                                <option value="aadhaar" selected>Aadhaar Card</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>ID Number *</label>
+                            <input type="text" id="idNumber" required placeholder="XXXX XXXX XXXX"
+                                oninput="formatAadhaar(this)" onblur="validateIdNumber()">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Upload ID Photo *</label>
+                        <input type="file" id="idPhoto" accept="image/*" capture="environment" style="display:none"
+                            onchange="handleIdUpload(event)">
+                        <button type="button" class="photo-upload-btn"
+                            onclick="document.getElementById('idPhoto').click()" style="background: var(--gradient-3);">
+                            📄 Upload ID Document
+                        </button>
+                        <div class="id-proof-preview" id="idProofPreview" style="display: none;">
+                            <span style="font-size: 3rem;">📄</span>
+                        </div>
+                        <div id="verificationStatus" class="verification-status pending"
+                            style="margin-top: 0.5rem; display: none;">
+                            <span>🕒</span> AI Verification Pending
+                        </div>
+                        <small style="color: var(--gray-600); display: block; margin-top: 0.5rem;">
+                            Our AI will verify your ID and extract address automatically
+                        </small>
+                    </div>
+                </div>
+
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Years of Experience</label>
+                        <input type="number" id="experience" placeholder="e.g., 5" min="0" max="50">
+                    </div>
+                    <div class="form-group">
+                        <label>Gender *</label>
+                        <div class="gender-options">
+                            <label class="gender-option" onclick="selectGender(this, 'male')">
+                                <input type="radio" name="gender" value="male" required> 👨 Male
+                            </label>
+                            <label class="gender-option" onclick="selectGender(this, 'female')">
+                                <input type="radio" name="gender" value="female"> 👩 Female
+                            </label>
+                            <label class="gender-option" onclick="selectGender(this, 'other')">
+                                <input type="radio" name="gender" value="other"> ⚧ Other
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Service Selection with Alphabetical List -->
+                <div class="form-group">
+                    <label>Service Type *</label>
+                    <div style="position: relative;">
+                        <input type="text" id="serviceSearch" placeholder="Search or select service..."
+                            oninput="filterServices(this.value)" onfocus="showServiceList()">
+                        <div id="serviceListContainer" class="service-list-container"
+                            style="display: none; position: absolute; width: 100%; z-index: 100;">
+                            <!-- Services will be populated here alphabetically -->
+                        </div>
+                    </div>
+                    <input type="hidden" id="selectedService" required>
+
+                    <!-- Dynamic Categories Container -->
+                    <div id="serviceCategories" style="margin-top: 1rem; display: none;">
+                        <label>Specialization/Categories *</label>
+                        <div class="category-tags" id="categoryTags">
+                            <!-- Dynamic categories will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Specific Fields Container -->
+                <div id="specificFieldsContainer"></div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Base Price (₹/hour) *</label>
+                        <input type="number" id="serviceCost" required placeholder="e.g., 500" min="50">
+                    </div>
+                    <div class="form-group">
+                        <label>Complete Address *</label>
+                        <input type="text" id="workerAddress" required placeholder="Enter your full address">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Available Time Slots (24-hour format) *</label>
+                    <div class="time-slots-container" id="timeSlotsContainer"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>Your Location (GPS) *</label>
+                    <div class="map-container" id="locationMap" onclick="getCurrentLocation()">
+                        <div style="text-align: center;">
+                            <div style="font-size: 3rem; margin-bottom: 0.5rem;">📍</div>
+                            <div>Click to capture your location</div>
+                        </div>
+                    </div>
+                    <input type="hidden" id="latitude"><input type="hidden" id="longitude">
+                </div>
+
+                <div class="form-group">
+                    <label>Bio / Description</label>
+                    <textarea id="workerBio" rows="3" placeholder="Tell customers about your experience..."></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="registerBtn">
+                    <span>Complete Registration</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- User Search Interface -->
+        <div id="userSearch" class="search-interface">
+            <button class="btn-back" onclick="showHome()">← Back to Home</button>
+
+            <div class="search-bar">
+                <div class="search-row">
+                    <div class="search-field" style="position: relative;">
+                        <label>What service do you need?</label>
+                        <input type="text" id="searchServiceInput" placeholder="Type to search services..."
+                            oninput="handleServiceSearch(this.value)" onfocus="showSearchDropdown()">
+                        <div id="serviceSearchDropdown" class="service-list-container"
+                            style="display: none; position: absolute; width: 100%;"></div>
+                    </div>
+                    <div class="search-field">
+                        <label>Your Location</label>
+                        <input type="text" id="userLocationInput" placeholder="📍 Click GPS button" readonly>
+                    </div>
+                    <div class="search-field" style="max-width: 120px;">
+                        <label>Distance (km)</label>
+                        <input type="number" id="maxDistance" value="10" min="1" max="50">
+                    </div>
+                    <div class="search-field" style="max-width: 220px;">
+                        <label>Sort By</label>
+                        <select id="sortBy">
+                            <option value="distance_price">📍💰 Nearest + Low Price</option>
+                            <option value="distance">📍 Nearest First</option>
+                            <option value="price_low">💰 Price: Low to High</option>
+                            <option value="price_high">💰 Price: High to Low</option>
+                            <option value="rating">⭐ Highest Rated</option>
+                        </select>
+                    </div>
+                    <div class="search-field" style="display: flex; gap: 0.5rem; max-width: 220px;">
+                        <button class="btn btn-primary" onclick="searchWorkers()" style="flex: 1;">🔍 Search</button>
+                        <button class="btn btn-secondary" onclick="getUserLocation()"
+                            style="flex: 1; background: var(--gradient-3); color: white;">📍 GPS</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filter-tags">
+                <div class="filter-tag active" onclick="filterByPrice('all')">All Prices</div>
+                <div class="filter-tag" onclick="filterByPrice('low')">Under ₹500</div>
+                <div class="filter-tag" onclick="filterByPrice('mid')">₹500 - ₹1000</div>
+                <div class="filter-tag" onclick="filterByPrice('high')">Above ₹1000</div>
+            </div>
+
+            <div id="searchResults" class="workers-grid">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📍</div>
+                    <h3>Set Your Location</h3>
+                    <p>Please enter your location or use GPS to find nearby service providers.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Dashboard -->
+        <div id="userDashboard" class="dashboard">
+            <div class="dashboard-header">
+                <div>
+                    <h2>Welcome back, <span id="userDisplayName">User</span>! 👋</h2>
+                    <p style="color: var(--gray-600);">Manage your bookings</p>
+                </div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="userTotalBookings">0</div>
+                    <div class="stat-label">Total Bookings</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="userUpcoming">0</div>
+                    <div class="stat-label">Upcoming</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="userCompleted">0</div>
+                    <div class="stat-label">Completed</div>
+                </div>
+            </div>
+            <div class="bookings-list">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 style="font-size: 1.25rem; font-weight: 700;">My Bookings</h3>
+                </div>
+                <div id="userBookingsList"></div>
+            </div>
+        </div>
+
+        <!-- Worker Dashboard -->
+        <div id="workerDashboard" class="worker-dashboard">
+            <div class="dashboard-header">
+                <div>
+                    <h2>Welcome, <span id="workerDisplayName">Provider</span>! 👋</h2>
+                    <p style="color: var(--gray-600);">Manage your services</p>
+                </div>
+                <div
+                    style="display: flex; align-items: center; gap: 1rem; padding: 1rem; background: white; border-radius: 12px; box-shadow: var(--shadow-lg);">
+                    <span>Available</span>
+                    <div class="toggle-switch" id="availabilityToggle" onclick="toggleAvailability()"
+                        style="width: 56px; height: 28px; background: #e2e8f0; border-radius: 14px; position: relative; cursor: pointer; transition: all 0.3s;">
+                        <div
+                            style="width: 24px; height: 24px; background: white; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: all 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div
+                style="background: var(--gradient-1); color: white; padding: 2rem; border-radius: 20px; margin-bottom: 1.5rem; box-shadow: var(--shadow-lg);">
+                <p style="opacity: 0.9; font-size: 1.1rem;">Total Earnings</p>
+                <div style="font-size: 3.5rem; font-weight: 800; margin-top: 0.5rem;">₹<span
+                        id="workerEarnings">0</span></div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="workerTotalBookings">0</div>
+                    <div class="stat-label">Total Bookings</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="workerTodayBookings">0</div>
+                    <div class="stat-label">Today's</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="workerRating">0.0</div>
+                    <div class="stat-label">Rating</div>
+                </div>
+            </div>
+            <div class="bookings-list">
+                <div id="workerBookingsList"></div>
+            </div>
+        </div>
+
+        <!-- Admin Interface -->
+        <div id="adminInterface" class="admin-interface">
+            <div class="dashboard-header">
+                <div>
+                    <h2>⚙️ Admin Dashboard</h2>
+                    <p style="color: var(--gray-600);">Manage platform operations</p>
+                </div>
+                <button class="btn btn-primary" style="width: auto;" onclick="showAddServiceModal()">+ Add
+                    Service</button>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="adminTotalUsers">0</div>
+                    <div class="stat-label">Users</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="adminTotalWorkers">0</div>
+                    <div class="stat-label">Workers</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="adminTotalBookings">0</div>
+                    <div class="stat-label">Bookings</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="adminPendingVerifications">0</div>
+                    <div class="stat-label">Pending</div>
+                </div>
+            </div>
+            <div class="admin-tabs">
+                <div class="admin-tab active" onclick="showAdminTab('workers')">Workers</div>
+                <div class="admin-tab" onclick="showAdminTab('users')">Users</div>
+                <div class="admin-tab" onclick="showAdminTab('bookings')">Bookings</div>
+            </div>
+            <div class="admin-table">
+                <table id="adminTable">
+                    <thead id="adminTableHeader"></thead>
+                    <tbody id="adminTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== CONFIG ====================
+        let authToken = localStorage.getItem('authToken') || null;
+        let currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
+        let serviceTypes = [];
+        let userLocation = null;
+        let currentRating = 0;
+        let currentReviewBooking = null;
+        let selectedService = null;
+        let selectedCategories = [];
+        let idVerificationStatus = 'pending';
+        let qrVerificationStatus = 'pending';
+        let tempProfilePhoto = null;
+        let tempIdProof = null;
+
+        // Comprehensive Service List with Categories
+        const servicesData = {
+            'accountant': { icon: '📊', displayName: 'Accountant', categories: ['Tax Filing', 'Auditing', 'Bookkeeping', 'Financial Planning'] },
+            'architect': { icon: '🏗️', displayName: 'Architect', categories: ['Residential', 'Commercial', 'Interior Design', 'Landscape'] },
+            'babysitter': { icon: '👶', displayName: 'Babysitter', categories: ['Infant Care', 'Toddler Care', 'Special Needs', 'Overnight'] },
+            'carpenter': { icon: '🪵', displayName: 'Carpenter', categories: ['Furniture', 'Doors & Windows', 'Kitchen Cabinets', 'Custom Woodwork'] },
+            'chef': { icon: '👨‍🍳', displayName: 'Chef/Cook', categories: ['Veg Only', 'Non-Veg', 'Both', 'Baking', 'Regional Cuisine'] },
+            'cleaner': { icon: '🧹', displayName: 'Cleaner', categories: ['House Cleaning', 'Office Cleaning', 'Deep Cleaning', 'Move-in/Move-out'] },
+            'doctor': { icon: '👨‍⚕️', displayName: 'Doctor', categories: ['General Physician', 'Pediatrician', 'Cardiologist', 'Dermatologist', 'Orthopedic', 'Dentist', 'Homeopathy', 'Ayurvedic'] },
+            'driver': { icon: '🚗', displayName: 'Driver', categories: ['Personal Car', 'Commercial', 'School Transport', 'Elderly Transport', 'Long Distance'] },
+            'electrician': { icon: '⚡', displayName: 'Electrician', categories: ['Wiring', 'Appliance Repair', 'Installation', 'Industrial'] },
+            'event_planner': { icon: '🎉', displayName: 'Event Planner', categories: ['Weddings', 'Corporate', 'Birthdays', 'Religious Functions'] },
+            'gardener': { icon: '🌱', displayName: 'Gardener', categories: ['Maintenance', 'Landscaping', 'Indoor Plants', 'Organic Gardening'] },
+            'hair_stylist': { icon: '💇', displayName: 'Hair Stylist', categories: ['Men', 'Women', 'Kids', 'Bridal', 'Coloring'] },
+            'home_nurse': { icon: '🏥', displayName: 'Home Nurse', categories: ['Elderly Care', 'Post Surgery', 'Newborn Care', 'Physiotherapy'] },
+            'interior_designer': { icon: '🎨', displayName: 'Interior Designer', categories: ['Residential', 'Commercial', 'Modular Kitchen', 'Furniture Design'] },
+            'laundry': { icon: '👕', displayName: 'Laundry Service', categories: ['Wash & Fold', 'Dry Cleaning', 'Ironing', 'Premium Care'] },
+            'lawyer': { icon: '⚖️', displayName: 'Lawyer', categories: ['Civil', 'Criminal', 'Family', 'Property', 'Corporate'] },
+            'makeup_artist': { icon: '💄', displayName: 'Makeup Artist', categories: ['Bridal', 'Party', 'Photoshoot', 'Special Effects'] },
+            'mechanic': { icon: '🔧', displayName: 'Mechanic', categories: ['Two Wheeler', 'Four Wheeler', 'Heavy Vehicle', 'AC Repair'] },
+            'painter': { icon: '🖌️', displayName: 'Painter', categories: ['Interior', 'Exterior', 'Texture', 'Artistic'] },
+            'pest_control': { icon: '🐜', displayName: 'Pest Control', categories: ['Residential', 'Commercial', 'Termite', 'Rodent'] },
+            'photographer': { icon: '📸', displayName: 'Photographer', categories: ['Wedding', 'Portrait', 'Product', 'Event', 'Real Estate'] },
+            'plumber': { icon: '🚿', displayName: 'Plumber', categories: ['Leakage', 'Installation', 'Bathroom Fitting', 'Sewer Line'] },
+            'security_guard': { icon: '🛡️', displayName: 'Security Guard', categories: ['Residential', 'Commercial', 'Personal Bodyguard', 'Event Security'] },
+            'tailor': { icon: '🧵', displayName: 'Tailor', categories: ['Men', 'Women', 'Children', 'Alterations', 'Custom Design'] },
+            'teacher': { icon: '📚', displayName: 'Teacher', categories: ['Mathematics', 'Science', 'English', 'Hindi', 'Computer', 'Music', 'Dance', 'Yoga', 'Art'] },
+            'technician': { icon: '💻', displayName: 'Computer Technician', categories: ['Hardware', 'Software', 'Networking', 'Data Recovery'] },
+            'tutor': { icon: '🎓', displayName: 'Home Tutor', categories: ['Primary', 'Secondary', 'Higher Secondary', 'Competitive Exams'] },
+            'yoga_instructor': { icon: '🧘', displayName: 'Yoga Instructor', categories: ['Hatha Yoga', 'Power Yoga', 'Meditation', 'Therapeutic Yoga'] },
+            'other': { icon: '🔧', displayName: 'Other', categories: [] }
+        };
+
+        // ==================== INIT ====================
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadServiceTypes();
+            initializeTimeSlots();
+            populateServiceTypes();
+            if (authToken && currentUser) updateNavigation();
+        });
+
+        // ==================== SERVICE MANAGEMENT ====================
+        function populateServiceTypes() {
+            // Sort services alphabetically
+            const sortedServices = Object.entries(servicesData).sort((a, b) => a[1].displayName.localeCompare(b[1].displayName));
+
+            // Populate registration dropdown
+            const container = document.getElementById('serviceListContainer');
+            container.innerHTML = sortedServices.map(([key, data]) => `
+                <div class="service-list-item" onclick="selectServiceForRegistration('${key}', '${data.displayName}', '${data.icon}')">
+                    <span style="font-size: 1.5rem;">${data.icon}</span>
+                    <div style="font-weight: 600;">${data.displayName}</div>
+                </div>
+            `).join('');
+
+            // Populate search dropdown
+            const searchContainer = document.getElementById('serviceSearchDropdown');
+            searchContainer.innerHTML = sortedServices.map(([key, data]) => `
+                <div class="service-list-item" onclick="selectServiceForSearch('${key}', '${data.displayName}', '${data.icon}')">
+                    <span style="font-size: 1.5rem;">${data.icon}</span>
+                    <div style="font-weight: 600;">${data.displayName}</div>
+                </div>
+            `).join('');
+        }
+
+        function showServiceList() {
+            document.getElementById('serviceListContainer').style.display = 'block';
+        }
+
+        function showSearchDropdown() {
+            document.getElementById('serviceSearchDropdown').style.display = 'block';
+        }
+
+        function filterServices(searchTerm) {
+            const container = document.getElementById('serviceListContainer');
+            const items = container.querySelectorAll('.service-list-item');
+            let found = false;
+
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                const isMatch = text.includes(searchTerm.toLowerCase());
+                item.style.display = isMatch ? 'flex' : 'none';
+                if (isMatch) found = true;
+            });
+
+            // If no service found, show "Add Custom Service" option
+            if (!found && searchTerm.length > 2) {
+                const customDiv = document.createElement('div');
+                customDiv.className = 'service-list-item custom-service-add';
+                customDiv.style.background = 'var(--gradient-3)';
+                customDiv.style.color = 'white';
+                customDiv.innerHTML = `
+                    <span style="font-size: 1.5rem;">🆕</span>
+                    <div>
+                        <div style="font-weight: 700;">Add "${searchTerm}"</div>
+                        <div style="font-size: 0.8rem;">Create this new service</div>
+                    </div>
+                `;
+                customDiv.onclick = () => selectCustomService(searchTerm);
+                container.appendChild(customDiv);
+            }
+
+            container.style.display = 'block';
+        }
+
+        function selectCustomService(name) {
+            const key = name.toLowerCase().replace(/\s+/g, '_');
+            const icon = '🛠️';
+
+            // Add to local servicesData so search can find it
+            servicesData[key] = { icon, displayName: name, categories: ['General'] };
+
+            // Add to dropdown for others to see (simulated)
+            const searchDropdown = document.getElementById('serviceSearchDropdown');
+            const newItem = document.createElement('div');
+            newItem.className = 'service-list-item';
+            newItem.innerHTML = `
+                 <span style="font-size: 1.5rem;">${icon}</span>
+                 <div style="font-weight: 600;">${name}</div>
+            `;
+            newItem.onclick = () => selectServiceForSearch(key, name, icon);
+            searchDropdown.appendChild(newItem);
+
+            selectServiceForRegistration(key, name, icon);
+        }
+
+        function handleServiceSearch(value) {
+            const dropdown = document.getElementById('serviceSearchDropdown');
+            const items = dropdown.querySelectorAll('.service-list-item');
+
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(value.toLowerCase()) ? 'flex' : 'none';
+            });
+
+            dropdown.style.display = value ? 'block' : 'none';
+        }
+
+        function selectServiceForRegistration(key, displayName, icon) {
+            document.getElementById('serviceSearch').value = `${icon} ${displayName}`;
+            document.getElementById('selectedService').value = key;
+            document.getElementById('serviceListContainer').style.display = 'none';
+
+            // Show categories
+            showServiceCategories(key);
+        }
+
+        function selectServiceForSearch(key, displayName, icon) {
+            document.getElementById('searchServiceInput').value = `${icon} ${displayName}`;
+            document.getElementById('searchServiceInput').dataset.value = key;
+            selectedService = key;
+            document.getElementById('serviceSearchDropdown').style.display = 'none';
+        }
+
+        function showServiceCategories(serviceKey) {
+            const container = document.getElementById('serviceCategories');
+            const tagsContainer = document.getElementById('categoryTags');
+            const service = servicesData[serviceKey];
+
+            if (!service || service.categories.length === 0) {
+                container.style.display = 'none';
+                return;
+            }
+
+            selectedCategories = [];
+            tagsContainer.innerHTML = service.categories.map(cat => `
+                <span class="category-tag" onclick="toggleCategory(this, '${cat}')">${cat}</span>
+            `).join('');
+
+            container.style.display = 'block';
+
+            // Show specific fields based on service
+            showSpecificFields(serviceKey);
+        }
+
+        function toggleCategory(element, category) {
+            element.classList.toggle('selected');
+            if (element.classList.contains('selected')) {
+                selectedCategories.push(category);
+            } else {
+                selectedCategories = selectedCategories.filter(c => c !== category);
+            }
+        }
+
+        function showSpecificFields(serviceKey) {
+            const container = document.getElementById('specificFieldsContainer');
+            let html = '';
+
+            switch (serviceKey) {
+                case 'chef':
+                    html = `
+                        <div class="form-group">
+                            <label>Cuisine Specialization</label>
+                            <div class="category-tags">
+                                <span class="category-tag" onclick="toggleCategory(this, 'North Indian')">North Indian</span>
+                                <span class="category-tag" onclick="toggleCategory(this, 'South Indian')">South Indian</span>
+                                <span class="category-tag" onclick="toggleCategory(this, 'Chinese')">Chinese</span>
+                                <span class="category-tag" onclick="toggleCategory(this, 'Continental')">Continental</span>
+                                <span class="category-tag" onclick="toggleCategory(this, 'Italian')">Italian</span>
+                                <span class="category-tag" onclick="toggleCategory(this, 'Bengali')">Bengali</span>
+                                <span class="category-tag" onclick="toggleCategory(this, 'Gujarati')">Gujarati</span>
+                                <span class="category-tag" onclick="toggleCategory(this, 'Punjabi')">Punjabi</span>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Approximate Members Can Serve</label>
+                                <select id="servingCapacity">
+                                    <option value="1-10">1-10 people</option>
+                                    <option value="10-25">10-25 people</option>
+                                    <option value="25-50">25-50 people</option>
+                                    <option value="50-100">50-100 people</option>
+                                    <option value="100+">100+ people</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Meal Type</label>
+                                <div class="category-tags">
+                                    <span class="category-tag" onclick="toggleCategory(this, 'Breakfast')">Breakfast</span>
+                                    <span class="category-tag" onclick="toggleCategory(this, 'Lunch')">Lunch</span>
+                                    <span class="category-tag" onclick="toggleCategory(this, 'Dinner')">Dinner</span>
+                                    <span class="category-tag" onclick="toggleCategory(this, 'Snacks')">Snacks</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+
+                case 'driver':
+                    html = `
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Vehicle Type</label>
+                                <div class="category-tags">
+                                    <span class="category-tag" onclick="toggleCategory(this, 'Hatchback')">Hatchback</span>
+                                    <span class="category-tag" onclick="toggleCategory(this, 'Sedan')">Sedan</span>
+                                    <span class="category-tag" onclick="toggleCategory(this, 'SUV')">SUV</span>
+                                    <span class="category-tag" onclick="toggleCategory(this, 'Luxury')">Luxury</span>
+                                    <span class="category-tag" onclick="toggleCategory(this, 'Commercial')">Commercial</span>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>License Type</label>
+                                <select id="licenseType">
+                                    <option value="lmv">LMV (Light Motor Vehicle)</option>
+                                    <option value="hmv">HMV (Heavy Motor Vehicle)</option>
+                                    <option value="both">Both</option>
+                                </select>
+                            </div>
+                        </div>
+                    `;
+                    break;
+
+                case 'doctor':
+                    html = `
+                        <div class="form-group">
+                            <label>Specialization *</label>
+                            <select id="doctorSpecialization" required>
+                                <option value="">Select Specialization</option>
+                                <option value="general">General Physician</option>
+                                <option value="cardiologist">Cardiologist</option>
+                                <option value="dermatologist">Dermatologist</option>
+                                <option value="pediatrician">Pediatrician</option>
+                                <option value="orthopedic">Orthopedic</option>
+                                <option value="dentist">Dentist</option>
+                                <option value="gynecologist">Gynecologist</option>
+                                <option value="ent">ENT Specialist</option>
+                                <option value="physiotherapist">Physiotherapist</option>
+                                <option value="homeopathy">Homeopathy</option>
+                                <option value="ayurvedic">Ayurvedic</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Years of Practice</label>
+                                <input type="number" id="practiceYears" placeholder="e.g., 10" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Consultation Type</label>
+                                <div class="category-tags">
+                                    <span class="category-tag" onclick="toggleCategory(this, 'In-Person')">In-Person</span>
+                                    <span class="category-tag" onclick="toggleCategory(this, 'Online')">Online</span>
+                                    <span class="category-tag" onclick="toggleCategory(this, 'Home Visit')">Home Visit</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    break;
+
+                case 'tailor':
+                    html = `
+                        <div class="form-group">
+                            <label>Garment Types</label>
+                            <div class="category-tags">
+                                <span class="category-tag" onclick="toggleCategory(this, 'Shirts')">Shirts</span>
+                                <span class="category-tag" onclick="toggleCategory(this, 'Pants')">Pants</span>
+                                <span class="category-tag" onclick="toggleCategory(this, 'Suits')">Suits</span>
+                                <span class="category-tag" onclick="toggleCategory(this, 'Dresses')">Dresses</span>
+                                <span class="category-tag" onclick="toggleCategory(this, 'Ethnic Wear')">Ethnic Wear</span>
+                                <span class="category-tag" onclick="toggleCategory(this, 'Alterations')">Alterations</span>
+                            </div>
+                        </div>
+                    `;
+                    break;
+
+                case 'teacher':
+                case 'tutor':
+                    html = `
+                        <div class="form-group">
+                            <label>Classes/Levels</label>
+                            <div class="category-tags">
+                                <span class="category-tag" onclick="toggleCategory(this, 'Class 1-5')">Class 1-5</span>
+                                <span class="category-tag" onclick="toggleCategory(this, 'Class 6-8')">Class 6-8</span>
+                                <span class="category-tag" onclick="toggleCategory(this, 'Class 9-10')">Class 9-10</span>
+                                <span class="category-tag" onclick="toggleCategory(this, 'Class 11-12')">Class 11-12</span>
+                                <span class="category-tag" onclick="toggleCategory(this, 'Graduation')">Graduation</span>
+                                <span class="category-tag" onclick="toggleCategory(this, 'Competitive Exams')">Competitive Exams</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Mode of Teaching</label>
+                            <div class="category-tags">
+                                <span class="category-tag" onclick="toggleCategory(this, 'Online')">Online</span>
+                                <span class="category-tag" onclick="toggleCategory(this, 'Offline')">Offline</span>
+                                <span class="category-tag" onclick="toggleCategory(this, 'Both')">Both</span>
+                            </div>
+                        </div>
+                    `;
+                    break;
+            }
+
+            container.innerHTML = html;
+        }
+
+        // ==================== ID VERIFICATION ====================
+        function handleIdTypeChange() {
+            const idType = document.getElementById('idType').value;
+            const idNumberInput = document.getElementById('idNumber');
+
+            switch (idType) {
+                case 'aadhaar':
+                    idNumberInput.placeholder = 'XXXX XXXX XXXX';
+                    idNumberInput.maxLength = 14;
+                    break;
+                case 'pan':
+                    idNumberInput.placeholder = 'ABCDE1234F';
+                    idNumberInput.maxLength = 10;
+                    break;
+                case 'driving':
+                    idNumberInput.placeholder = 'DL-1420110012345';
+                    idNumberInput.maxLength = 16;
+                    break;
+                default:
+                    idNumberInput.placeholder = 'Enter ID number';
+            }
+        }
+
+        function validateIdNumber() {
+            const idType = document.getElementById('idType').value;
+            const idNumber = document.getElementById('idNumber').value;
+            const input = document.getElementById('idNumber');
+
+            let isValid = false;
+
+            switch (idType) {
+                case 'aadhaar':
+                    isValid = /^\d{4}\s?\d{4}\s?\d{4}$/.test(idNumber);
+                    break;
+                case 'pan':
+                    isValid = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(idNumber);
+                    break;
+                case 'driving':
+                    isValid = idNumber.length >= 5;
+                    break;
+                default:
+                    isValid = idNumber.length > 0;
+            }
+
+            input.style.borderColor = isValid ? 'var(--success)' : 'var(--danger)';
+            return isValid;
+        }
+
+        // ==================== AADHAAR & OTP FUNCTIONS ====================
+        function formatAadhaar(input) {
+            let value = input.value.replace(/\D/g, '');
+            value = value.substring(0, 12);
+            const formatted = value.replace(/(\d{4})(?=\d)/g, '$1 ');
+            input.value = formatted;
+        }
+
+        async function handleIdUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                tempIdProof = e.target.result;
+                const preview = document.getElementById('idProofPreview');
+                preview.innerHTML = `<img src="${e.target.result}" alt="ID Proof">`;
+                preview.style.display = 'flex';
+                preview.classList.add('ai-scanning');
+
+                const statusDiv = document.getElementById('verificationStatus');
+                statusDiv.style.display = 'inline-flex';
+                statusDiv.className = 'verification-status pending';
+                statusDiv.innerHTML = '<span>🤔</span> AI Scanning Aadhaar & QR...';
+
+                try {
+                    // 1. QR Code Detection
+                    const qrData = await scanQRCode(e.target.result);
+                    console.log("QR Extracted Data:", qrData);
+
+                    // 2. Tesseract OCR
+                    const result = await Tesseract.recognize(e.target.result, 'eng');
+                    const text = result.data.text;
+                    console.log("OCR Extracted Text:", text);
+
+                    verifyAadhaarWithQR(text, qrData);
+                } catch (error) {
+                    console.error("Verification Error:", error);
+                    statusDiv.className = 'verification-status failed';
+                    statusDiv.innerHTML = '<span>❌</span> AI Scan Failed';
+                    showToast('Could not read ID image. Please try again.', 'error');
+                }
+
+                preview.classList.remove('ai-scanning');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function scanQRCode(imageDataUrl) {
+            return new Promise((resolve) => {
+                const image = new Image();
+                image.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.width = image.width;
+                    canvas.height = image.height;
+                    context.drawImage(image, 0, 0);
+                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+                    resolve(code ? code.data : null);
+                };
+                image.src = imageDataUrl;
+            });
+        }
+
+        function verifyAadhaarWithQR(extractedText, qrData) {
+            const statusDiv = document.getElementById('verificationStatus');
+            const enteredName = document.getElementById('workerName').value.trim().toLowerCase();
+            const enteredAadhaar = document.getElementById('idNumber').value.trim().replace(/\D/g, '');
+
+            if (!enteredName || !enteredAadhaar) {
+                statusDiv.className = 'verification-status failed';
+                statusDiv.innerHTML = '<span>❌</span> Enter Name/ID first';
+                showToast('Please enter your Name and Aadhaar number before uploading ID', 'warning');
+                return;
+            }
+
+            // Cleanup OCR text: lowercase and keep only alphanumeric
+            const cleanText = extractedText.toLowerCase().replace(/[^a-z0-9]/g, ' ');
+
+            // 1. ID Matching (Flexible)
+            // Handle common OCR digit substitutions: I/l/| -> 1, O -> 0, S -> 5, Z -> 2, B -> 8
+            const mapSubstitutions = (text) => text.replace(/i|l|\|/g, '1').replace(/o/g, '0').replace(/s/g, '5').replace(/z/g, '2').replace(/b/g, '8');
+            const numbersOnly = mapSubstitutions(extractedText.toLowerCase()).replace(/\D/g, '');
+            const hasAadhaarOcrMatch = numbersOnly.includes(enteredAadhaar);
+
+            // 2. Name Matching (More Lenient)
+            // Use length > 1 to include common short names/initials
+            const nameParts = enteredName.split(/\s+/).filter(p => p.length >= 1);
+            let nameMatchCount = 0;
+            nameParts.forEach(part => {
+                // Check if part exists as a word or substring
+                if (cleanText.includes(part)) nameMatchCount++;
+            });
+
+            // Match if at least 50% of name parts match, OR if the first part matches strongly
+            const hasNameOcrMatch = (nameParts.length > 0) ?
+                (nameMatchCount / nameParts.length >= 0.5) :
+                cleanText.includes(enteredName);
+
+            // QR Matching
+            let hasAadhaarQrMatch = false;
+            let qrDetected = !!qrData;
+            if (qrDetected) {
+                // Aadhaar QR usually contains the ID.
+                const cleanQr = qrData.replace(/\D/g, '');
+                hasAadhaarQrMatch = cleanQr.includes(enteredAadhaar) || cleanQr.includes(enteredAadhaar.slice(-4));
+                console.log("QR Match Result:", hasAadhaarQrMatch);
+            }
+
+            // Final Decision Logic
+            let mismatchReasons = [];
+            // If QR matches, it overrides OCR mismatch for ID
+            if (!hasAadhaarQrMatch && !hasAadhaarOcrMatch) mismatchReasons.push("ID Number");
+            if (!hasNameOcrMatch) mismatchReasons.push("Name");
+
+            if (mismatchReasons.length === 0) {
+                statusDiv.className = 'verification-status verified';
+                statusDiv.innerHTML = qrDetected ? '<span>✅</span> Verified (QR + AI)' : '<span>✅</span> Verified (AI)';
+                idVerificationStatus = 'verified';
+                qrVerificationStatus = qrDetected ? 'verified' : 'skipped';
+                showToast('Aadhaar verified successfully! 🎉', 'success');
+            } else {
+                statusDiv.className = 'verification-status failed';
+                const reasonStr = mismatchReasons.join(" & ");
+                statusDiv.innerHTML = `<span>❌</span> ${reasonStr} Mismatch`;
+                idVerificationStatus = 'failed';
+
+                let toastMsg = `Mismatch detected in: ${reasonStr}. `;
+                if (qrDetected && !hasAadhaarQrMatch) toastMsg += "QR Code doesn't match ID. ";
+                toastMsg += "Try a clearer photo.";
+
+                showToast(toastMsg, 'error');
+                console.log("Verification Failed Details:", {
+                    ocrText: extractedText,
+                    numbersFound: numbersOnly,
+                    lookingFor: enteredAadhaar,
+                    nameMatches: `${nameMatchCount}/${nameParts.length}`,
+                    qrFound: qrDetected,
+                    qrMatch: hasAadhaarQrMatch
+                });
+            }
+        }
+
+        // ==================== API ====================
+        async function apiCall(endpoint, options = {}) {
+            showLoading(true);
+
+            // Allow testing via Live Server (port 5500 etc) by fallback to localhost on port 80
+            let origin = window.location.origin;
+            if (origin === 'null' || origin.includes('file://') || (window.location.port && window.location.port !== '80')) {
+                origin = 'http://localhost'; // Port 80 is the default HTTP port
+            }
+
+            const baseUrl = origin + '/api';
+            const url = endpoint.startsWith('http') ? endpoint : (baseUrl + (endpoint.startsWith('/') ? '' : '/') + endpoint);
+
+            if (!options.headers) options.headers = {};
+            if (authToken) options.headers['Authorization'] = `Bearer ${authToken}`;
+
+            // For JSON bodies, ensure Content-Type is set
+            if (options.body && !(options.body instanceof FormData) && typeof options.body === 'string') {
+                options.headers['Content-Type'] = 'application/json';
+            }
+
+            try {
+                const response = await fetch(url, options);
+                let result;
+
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.includes("application/json")) {
+                    result = await response.json();
+                } else {
+                    const text = await response.text();
+                    try {
+                        result = text ? JSON.parse(text) : {};
+                    } catch (e) {
+                        result = { error: text ? `Server Response: ${text.substring(0, 50)}...` : `HTTP Error ${response.status}` };
+                    }
+                }
+
+                if (!response.ok) {
+                    throw new Error(result.error || result.message || `API Error ${response.status}`);
+                }
+
+                showLoading(false);
+                return result;
+            } catch (error) {
+                showLoading(false);
+                console.error("API Error details:", error);
+                throw new Error(error.message === 'Failed to fetch' ? 'Cannot connect to server. Please make sure Python Flask server is running (python app.py).' : error.message);
+            }
+        }
+
+        async function handleLogin(data) {
+            try {
+                const result = await apiCall('/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                return result;
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        async function handleWorkerRegistration(data) {
+            try {
+                const result = await apiCall('/workers/register', {
+                    method: 'POST',
+                    body: JSON.stringify(data)
+                });
+                return result;
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        function showLoading(show) {
+            document.getElementById('loadingOverlay').classList.toggle('active', show);
+        }
+
+        // ==================== SERVICES ====================
+        async function loadServiceTypes() {
+            try {
+                serviceTypes = await apiCall('/services');
+            } catch (error) {
+                serviceTypes = Object.entries(servicesData).map(([key, data]) => ({
+                    name: key,
+                    displayName: data.displayName,
+                    icon: data.icon
+                }));
+            }
+        }
+
+        // ==================== NAVIGATION ====================
+        function updateNavigation() {
+            const isLoggedIn = !!currentUser;
+            document.getElementById('userGreeting').classList.toggle('hidden', !isLoggedIn);
+            document.getElementById('logoutBtn').classList.toggle('hidden', !isLoggedIn);
+            document.getElementById('dashboardBtn').classList.toggle('hidden', !isLoggedIn);
+            document.getElementById('authBtn').classList.toggle('hidden', isLoggedIn);
+            if (isLoggedIn) {
+                document.getElementById('navUserName').textContent = currentUser.name;
+                const avatar = document.getElementById('navUserAvatar');
+                avatar.src = currentUser.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=6366f1&color=fff`;
+            }
+        }
+
+        function hideAllSections() {
+            ['heroSection', 'roleSelection', 'workerForm', 'userSearch', 'userDashboard', 'workerDashboard', 'adminInterface']
+                .forEach(id => document.getElementById(id).style.display = 'none');
+        }
+
+        function showHome() {
+            hideAllSections();
+            document.getElementById('heroSection').style.display = 'block';
+            document.getElementById('roleSelection').style.display = 'grid';
+        }
+
+        function showWorkerForm() {
+            hideAllSections();
+            document.getElementById('workerForm').style.display = 'block';
+            initializeTimeSlots();
+        }
+
+        function showUserSearch() {
+            hideAllSections();
+            document.getElementById('userSearch').style.display = 'block';
+        }
+
+        async function showDashboard() {
+            if (!currentUser) { showAuthModal(); return; }
+            hideAllSections();
+            if (currentUser.role === 'admin') {
+                document.getElementById('adminInterface').style.display = 'block';
+                await loadAdminData();
+            } else if (currentUser.role === 'worker') {
+                document.getElementById('workerDashboard').style.display = 'block';
+                document.getElementById('workerDisplayName').textContent = currentUser.name;
+                await loadWorkerDashboard();
+            } else {
+                document.getElementById('userDashboard').style.display = 'block';
+                document.getElementById('userDisplayName').textContent = currentUser.name;
+                await loadUserDashboard();
+            }
+        }
+
+        // ==================== AUTH ====================
+        function showAuthModal() { document.getElementById('authModal').classList.add('active'); }
+        function closeAuthModal() { document.getElementById('authModal').classList.remove('active'); }
+
+        function handleAuthRoleChange() {
+            const role = document.getElementById('authRole').value;
+            const isAdmin = role === 'admin';
+
+            document.getElementById('adminAuthSection').style.display = isAdmin ? 'block' : 'none';
+            document.getElementById('authName').parentElement.style.display = isAdmin ? 'none' : 'block';
+            document.getElementById('authPhone').parentElement.style.display = isAdmin ? 'none' : 'block';
+
+            if (isAdmin) {
+                document.getElementById('authContinueBtn').textContent = 'Login as Admin';
+            } else {
+                document.getElementById('authContinueBtn').textContent = 'Continue →';
+            }
+        }
+
+
+        async function handleAuth() {
+            const role = document.getElementById('authRole').value;
+            const data = { role };
+
+            if (role === 'admin') {
+                const name = document.getElementById('authAdminEmail').value.trim();
+                const password = document.getElementById('authAdminPassword').value.trim();
+
+                if (!name || !password) {
+                    showToast('Username and Password are required', 'error');
+                    return;
+                }
+
+                data.name = name;
+                data.password = password;
+            } else {
+                const name = document.getElementById('authName').value.trim();
+                const phone = document.getElementById('authPhone').value.trim();
+                if (!name || !phone) { showToast('Please fill all fields', 'error'); return; }
+                data.name = name;
+                data.phone = phone;
+            }
+
+            try {
+                const result = await apiCall('/auth/login', { method: 'POST', body: JSON.stringify(data) });
+                authToken = result.token;
+                currentUser = result.user;
+                localStorage.setItem('authToken', authToken);
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                closeAuthModal();
+                updateNavigation();
+                showToast(`Welcome back, ${currentUser.name}! 🎉`, 'success');
+                await showDashboard();
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        }
+
+        function logout() {
+            authToken = null;
+            currentUser = null;
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('currentUser');
+            updateNavigation();
+            showHome();
+            showToast('Logged out successfully! 👋', 'info');
+        }
+
+        // ==================== WORKER REGISTRATION ====================
+        function initializeTimeSlots() {
+            const container = document.getElementById('timeSlotsContainer');
+            const slots = [];
+
+            // Generate 12-hour format slots
+            for (let i = 0; i < 24; i++) {
+                const hour = i % 12 || 12;
+                const ampm = i < 12 ? 'AM' : 'PM';
+                const nextHourNum = (i + 1) % 24;
+                const nextHour = nextHourNum % 12 || 12;
+                const nextAmpm = nextHourNum < 12 ? 'AM' : 'PM';
+
+                const displayTime = `${hour}:00 ${ampm} - ${nextHour}:00 ${nextAmpm}`;
+
+                slots.push(`
+                    <div class="slot-card" onclick="toggleSlotSelection(this, '${displayTime}')">
+                        <input type="checkbox" class="slot-checkbox" id="slot_${i}" value="${displayTime}">
+                        <div class="slot-time">⏰ ${displayTime}</div>
+                        <input type="number" class="slot-price-input" id="price_${i}" placeholder="₹/hr" disabled min="1" onchange="updateSlotPrice('${displayTime}', this.value)">
+                    </div>
+                `);
+            }
+
+            container.innerHTML = slots.join('');
+        }
+
+        function toggleSlotSelection(card, time) {
+            const checkbox = card.querySelector('.slot-checkbox');
+            const priceInput = card.querySelector('.slot-price-input');
+
+            checkbox.checked = !checkbox.checked;
+            card.classList.toggle('selected', checkbox.checked);
+            priceInput.disabled = !checkbox.checked;
+
+            if (checkbox.checked) {
+                priceInput.focus();
+            }
+        }
+
+        function updateSlotPrice(time, price) {
+            // Store price for the slot
+        }
+
+        function handlePhotoUpload(event, type) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                if (type === 'profile') {
+                    tempProfilePhoto = e.target.result;
+                    document.getElementById('profilePhotoPreview').innerHTML = `<img src="${e.target.result}" alt="Profile">`;
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function selectGender(element, gender) {
+            document.querySelectorAll('.gender-option').forEach(opt => opt.classList.remove('selected'));
+            element.classList.add('selected');
+            element.querySelector('input').checked = true;
+        }
+
+        async function checkDuplicate() {
+            const phone = document.getElementById('workerPhone').value.trim();
+            const name = document.getElementById('workerName').value.trim();
+            const service = document.getElementById('selectedService').value;
+            if (!phone && !name) return;
+            try {
+                const result = await apiCall(`/check-duplicate?phone=${encodeURIComponent(phone)}&name=${encodeURIComponent(name)}&service=${encodeURIComponent(service || '')}`);
+                if (result.exists) {
+                    showToast('Already registered with these details for this service!', 'warning');
+                    document.getElementById('workerPhone').style.borderColor = 'var(--danger)';
+                    document.getElementById('workerName').style.borderColor = 'var(--danger)';
+                } else {
+                    document.getElementById('workerPhone').style.borderColor = 'var(--success)';
+                    document.getElementById('workerName').style.borderColor = 'var(--success)';
+                }
+            } catch (error) {
+                console.error("Duplicate check failed:", error);
+            }
+        }
+
+        function getCurrentLocation() {
+            const mapContainer = document.getElementById('locationMap');
+            if (!navigator.geolocation) { showToast('Geolocation not supported', 'error'); return; }
+            mapContainer.innerHTML = '<div class="spinner" style="width: 40px; height: 40px;"></div><span>Getting location...</span>';
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    document.getElementById('latitude').value = position.coords.latitude;
+                    document.getElementById('longitude').value = position.coords.longitude;
+                    mapContainer.classList.add('captured');
+                    mapContainer.innerHTML = `
+                        <div style="text-align: center; animation: fadeIn 0.5s;">
+                            <div style="font-size: 3.5rem; margin-bottom: 0.5rem;">📍</div>
+                            <div style="font-weight: 700; font-size: 1.1rem;">Location Captured!</div>
+                            <div style="font-size: 0.9rem; opacity: 0.9;">${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}</div>
+                        </div>
+                    `;
+                    showToast('Location captured successfully! 🎯', 'success');
+                },
+                (error) => {
+                    mapContainer.innerHTML = `<div style="color: var(--danger); text-align: center;"><div style="font-size: 2rem;">❌</div><div>${error.message}</div></div>`;
+                    showToast('Location error: ' + error.message, 'error');
+                }
+            );
+        }
+
+        async function registerWorker(event) {
+            event.preventDefault();
+
+            // Validate ID
+            if (idVerificationStatus !== 'verified') {
+                showToast('Aadhaar AI/QR Verification must be successful!', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('registerBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner" style="width: 20px; height: 20px; border-width: 2px; display: inline-block; vertical-align: middle; margin-right: 0.5rem;"></div> Registering...';
+
+            try {
+                // Collect selected slots
+                const slots = {};
+                document.querySelectorAll('.slot-checkbox:checked').forEach(checkbox => {
+                    const time = checkbox.value;
+                    const priceInput = checkbox.parentElement.querySelector('.slot-price-input');
+                    const price = priceInput.value || document.getElementById('serviceCost').value;
+                    slots[time] = { available: true, price: parseInt(price) };
+                });
+
+                if (Object.keys(slots).length === 0) throw new Error('Select at least one time slot');
+
+                const serviceType = document.getElementById('selectedService').value;
+                if (!serviceType) throw new Error('Please select a service type');
+
+                const gender = document.querySelector('input[name="gender"]:checked')?.value;
+                if (!gender) throw new Error('Select gender');
+
+                let lat = parseFloat(document.getElementById('latitude').value);
+                let lng = parseFloat(document.getElementById('longitude').value);
+                if (!lat || !lng) {
+                    lat = 28.6139 + (Math.random() - 0.5) * 0.2;
+                    lng = 77.2090 + (Math.random() - 0.5) * 0.2;
+                }
+
+                const workerData = {
+                    name: document.getElementById('workerName').value.trim(),
+                    phone: document.getElementById('workerPhone').value.trim(),
+                    idType: document.getElementById('idType').value,
+                    idNumber: document.getElementById('idNumber').value,
+                    service: serviceType,
+                    categories: selectedCategories,
+                    cost: parseInt(document.getElementById('serviceCost').value),
+                    address: document.getElementById('workerAddress').value.trim(),
+                    latitude: lat,
+                    longitude: lng,
+                    slots: slots,
+                    gender: gender,
+                    experience: parseInt(document.getElementById('experience').value) || 0,
+                    bio: document.getElementById('workerBio').value.trim(),
+                    verified: true
+                };
+
+                // Add service-specific data
+                if (serviceType === 'chef') {
+                    workerData.servingCapacity = document.getElementById('servingCapacity')?.value;
+                } else if (serviceType === 'driver') {
+                    workerData.licenseType = document.getElementById('licenseType')?.value;
+                } else if (serviceType === 'doctor') {
+                    workerData.specialization = document.getElementById('doctorSpecialization')?.value;
+                    workerData.practiceYears = document.getElementById('practiceYears')?.value;
+                }
+
+                const payload = {
+                    user: {
+                        name: workerData.name,
+                        phone: workerData.phone,
+                        email: `${workerData.name.toLowerCase().replace(/\s+/g, '')}@example.com`,
+                        password: 'Password@123'
+                    },
+                    worker: {
+                        service: workerData.service,
+                        cost: workerData.cost,
+                        latitude: workerData.latitude,
+                        longitude: workerData.longitude,
+                        bio: workerData.bio,
+                        gender: workerData.gender,
+                        experience: workerData.experience,
+                        slots: workerData.slots
+                    }
+                };
+
+                const response = await apiCall('/workers/register', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+
+                showToast('Registration successful! 🎉 Welcome aboard!', 'success');
+                authToken = response.token;
+                currentUser = response.user;
+                localStorage.setItem('authToken', authToken);
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                updateNavigation();
+                setTimeout(() => showDashboard(), 1500);
+            } catch (error) {
+                showToast(error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>Complete Registration</span>';
+            }
+        }
+
+        // ==================== SEARCH ====================
+        function getUserLocation() {
+            const input = document.getElementById('userLocationInput');
+            input.value = '📍 Getting location...';
+            if (!navigator.geolocation) { input.value = ''; showToast('Geolocation not supported', 'error'); return; }
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    userLocation = { lat: position.coords.latitude, lng: position.coords.longitude };
+                    input.value = `📍 ${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`;
+                    showToast('Location detected! 🎯', 'success');
+                },
+                (error) => { input.value = ''; showToast('Location error: ' + error.message, 'error'); }
+            );
+        }
+
+        async function searchWorkers() {
+            const serviceType = selectedService || 'all';
+            const maxDistance = parseInt(document.getElementById('maxDistance').value) || 10;
+            const sortBy = document.getElementById('sortBy').value;
+
+            if (!userLocation) { showToast('Please set your location first', 'error'); return; }
+
+            try {
+                const workers = await apiCall(`/workers?service=${serviceType}&available=true&lat=${userLocation.lat}&lng=${userLocation.lng}&radius=${maxDistance}`);
+
+                workers.sort((a, b) => {
+                    switch (sortBy) {
+                        case 'distance_price':
+                            const maxPrice = Math.max(...workers.map(w => w.cost)) || 1;
+                            const scoreA = (a.distance / maxDistance) * 0.6 + (a.cost / maxPrice) * 0.4;
+                            const scoreB = (b.distance / maxDistance) * 0.6 + (b.cost / maxPrice) * 0.4;
+                            return scoreA - scoreB;
+                        case 'price_low': return a.cost - b.cost;
+                        case 'price_high': return b.cost - a.cost;
+                        case 'rating': return b.rating - a.rating;
+                        default: return a.distance - b.distance;
+                    }
+                });
+
+                displaySearchResults(workers);
+            } catch (error) {
+                showToast('Search failed: ' + error.message, 'error');
+            }
+        }
+
+        function displaySearchResults(workers) {
+            const container = document.getElementById('searchResults');
+            if (workers.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔍</div>
+                        <h3>No providers found</h3>
+                        <p>Try adjusting your search criteria or location</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = workers.map((worker, index) => {
+                const availableSlots = Object.entries(worker.slots || {}).filter(([_, d]) => d.available).map(([s]) => s);
+                const avatarUrl = worker.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(worker.name)}&background=6366f1&color=fff`;
+                const serviceIcon = servicesData[worker.service]?.icon || '🔧';
+                const delay = index * 0.1;
+
+                return `
+                    <div class="worker-card" data-price="${worker.cost}" data-rating="${worker.rating}" data-distance="${worker.distance || 0}" style="animation-delay: ${delay}s;">
+                        <div class="worker-header">
+                            <div class="badges">
+                                <div class="badge">📍 ${worker.distance || '?'} km</div>
+                                ${worker.verified ? '<div class="badge" style="background: rgba(34,197,94,0.3);">✔️ Verified</div>' : ''}
+                            </div>
+                            <div class="worker-avatar">
+                                <img src="${avatarUrl}" alt="${worker.name}" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(worker.name)}&background=6366f1&color=fff'">
+                            </div>
+                            <div style="font-size: 1.3rem; font-weight: 700;">${worker.name}</div>
+                            <div style="opacity: 0.9; margin-top: 0.25rem;">${serviceIcon} ${servicesData[worker.service]?.displayName || worker.service}</div>
+                        </div>
+                        <div class="worker-body">
+                            <div class="worker-info">
+                                <div class="info-row">
+                                    <div class="info-icon">⭐</div>
+                                    <span>★ ${worker.rating.toFixed(1)} (${worker.totalReviews} reviews)</span>
+                                </div>
+                                <div class="info-row">
+                                    <div class="info-icon">💰</div>
+                                    <span class="price-tag">₹${worker.cost}/hr</span>
+                                </div>
+                                <div class="info-row">
+                                    <div class="info-icon">⏰</div>
+                                    <span>${availableSlots.length} slots available</span>
+                                </div>
+                                ${worker.categories ? `
+                                <div class="info-row">
+                                    <div class="info-icon">🏷️</div>
+                                    <span>${worker.categories.slice(0, 3).join(', ')}${worker.categories.length > 3 ? '...' : ''}</span>
+                                </div>
+                                ` : ''}
+                            </div>
+                            <div class="worker-actions">
+                                <a href="tel:${worker.phone}" class="action-btn btn-call">📞</a>
+                                <a href="https://wa.me/${worker.phone.replace(/[^0-9]/g, '')}" target="_blank" class="action-btn btn-whatsapp">💬</a>
+                                <button class="action-btn btn-book" onclick="openBookingModal('${worker._id}')" ${availableSlots.length === 0 ? 'disabled' : ''}>
+                                    ${availableSlots.length === 0 ? 'Fully Booked' : 'Book Now →'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function filterByPrice(range) {
+            document.querySelectorAll('.filter-tag').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.querySelectorAll('.worker-card').forEach(card => {
+                const price = parseInt(card.dataset.price);
+                let show = true;
+                switch (range) {
+                    case 'low': show = price < 500; break;
+                    case 'mid': show = price >= 500 && price <= 1000; break;
+                    case 'high': show = price > 1000; break;
+                }
+                card.style.display = show ? 'block' : 'none';
+            });
+        }
+
+        // ==================== BOOKING ====================
+        async function openBookingModal(workerId) {
+            if (!currentUser) { showAuthModal(); showToast('Please login to book', 'info'); return; }
+            try {
+                const workers = await apiCall(`/workers?service=all`);
+                const worker = workers.find(w => w._id === workerId);
+                if (!worker) throw new Error('Worker not found');
+
+                const availableSlots = Object.entries(worker.slots || {}).filter(([_, d]) => d.available).map(([s, d]) => ({ slot: s, price: d.price }));
+
+                document.getElementById('bookingContent').innerHTML = `
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; padding: 1rem; background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); border-radius: 12px;">
+                            <img src="${worker.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(worker.name)}&background=6366f1&color=fff`}" style="width: 70px; height: 70px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                            <div>
+                                <div style="font-weight: 700; font-size: 1.3rem;">${worker.name}</div>
+                                <div style="color: var(--gray-600);">${servicesData[worker.service]?.displayName || worker.service} • ⭐ ${worker.rating}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="font-weight: 600; display: block; margin-bottom: 0.75rem;">📅 Select Time Slot</label>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem;">
+                            ${availableSlots.map(s => `
+                                <div style="padding: 1rem; border: 2px solid var(--gray-200); border-radius: 10px; cursor: pointer; text-align: center; transition: all 0.3s;" 
+                                     onclick="selectBookingSlot(this, '${s.slot}', ${s.price})" class="time-slot-btn">
+                                    <div style="font-weight: 600;">${s.slot}</div>
+                                    <div style="font-size: 0.85rem; color: var(--success); font-weight: 700;">₹${s.price}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <button type="button" class="btn btn-secondary" onclick="shareLocationForBooking()" style="margin-bottom: 0.5rem; background: var(--gradient-3); color: white; border: none;">
+                            📍 Share Live Location
+                        </button>
+                        <div id="bookingLocationDisplay" style="font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem;"></div>
+                        <input type="text" id="bookingAddress" placeholder="Or enter your complete address" style="width: 100%; padding: 0.875rem; border: 2px solid var(--gray-200); border-radius: 10px;">
+                    </div>
+                    <div style="margin-bottom: 1.5rem;">
+                        <label style="font-weight: 600; display: block; margin-bottom: 0.5rem;">ðŸ“ Additional Notes</label>
+                        <textarea id="bookingNotes" rows="3" style="width: 100%; padding: 0.875rem; border: 2px solid var(--gray-200); border-radius: 10px;" placeholder="Describe your requirements..."></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="confirmBooking('${workerId}')" id="confirmBookingBtn" disabled style="opacity: 0.6;">
+                        Confirm Booking âœ“
+                    </button>
+                `;
+                document.getElementById('bookingModal').classList.add('active');
+                window.currentBookingWorker = worker;
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        }
+
+        function selectBookingSlot(element, slot, price) {
+            document.querySelectorAll('.time-slot-btn').forEach(btn => {
+                btn.style.background = 'white';
+                btn.style.borderColor = 'var(--gray-200)';
+                btn.style.color = 'inherit';
+                btn.style.transform = 'scale(1)';
+            });
+            element.style.background = 'var(--primary)';
+            element.style.borderColor = 'var(--primary)';
+            element.style.color = 'white';
+            element.style.transform = 'scale(1.05)';
+            window.selectedBookingSlot = slot;
+            window.selectedBookingPrice = price;
+            const confirmBtn = document.getElementById('confirmBookingBtn');
+            confirmBtn.disabled = false;
+            confirmBtn.style.opacity = '1';
+        }
+
+        function shareLocationForBooking() {
+            const display = document.getElementById('bookingLocationDisplay');
+            display.innerHTML = '<span style="color: var(--primary);">ðŸ“¡ Getting location...</span>';
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    window.bookingLocation = { lat: position.coords.latitude, lng: position.coords.longitude };
+                    display.innerHTML = `<span style="color: var(--success); font-weight: 600;">âœ… Location shared: ${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}</span>`;
+                },
+                (error) => { display.innerHTML = `<span style="color: var(--danger);">âŒ ${error.message}</span>`; }
+            );
+        }
+
+        async function confirmBooking(workerId) {
+            const worker = window.currentBookingWorker;
+            try {
+                const booking = await apiCall('/bookings', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        userId: currentUser._id,
+                        userName: currentUser.name,
+                        workerId,
+                        workerName: worker.name,
+                        service: worker.service,
+                        slot: window.selectedBookingSlot,
+                        price: window.selectedBookingPrice,
+                        location: window.bookingLocation,
+                        address: document.getElementById('bookingAddress').value,
+                        notes: document.getElementById('bookingNotes').value
+                    })
+                });
+                showToast(`ðŸŽ‰ Booked with ${worker.name}!`, 'success');
+                closeBookingModal();
+
+                // Open WhatsApp with details
+                const message = `Hello ${worker.name}, I have booked your ${servicesData[worker.service]?.displayName || worker.service} service for ${window.selectedBookingSlot}.\n\n${window.bookingLocation ? `ðŸ“ Location: https://maps.google.com/?q=${window.bookingLocation.lat},${window.bookingLocation.lng}\n` : ''}${document.getElementById('bookingAddress').value ? `ðŸ  Address: ${document.getElementById('bookingAddress').value}\n` : ''}${document.getElementById('bookingNotes').value ? `ðŸ“ Notes: ${document.getElementById('bookingNotes').value}` : ''}`;
+
+                setTimeout(() => window.open(`https://wa.me/${worker.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`, '_blank'), 1000);
+
+                // Refresh search results
+                if (document.getElementById('userSearch').style.display !== 'none') {
+                    searchWorkers();
+                }
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        }
+
+        function closeBookingModal() {
+            document.getElementById('bookingModal').classList.remove('active');
+            window.currentBookingWorker = null;
+        }
+
+        // ==================== DASHBOARDS ====================
+        async function loadUserDashboard() {
+            try {
+                const bookings = await apiCall('/bookings/user');
+                document.getElementById('userTotalBookings').textContent = bookings.length;
+                document.getElementById('userUpcoming').textContent = bookings.filter(b => b.status === 'confirmed').length;
+                document.getElementById('userCompleted').textContent = bookings.filter(b => b.status === 'completed').length;
+
+                const container = document.getElementById('userBookingsList');
+                if (bookings.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state" style="padding: 2rem;">
+                            <div class="empty-state-icon">ðŸ“‹</div>
+                            <h3>No bookings yet</h3>
+                            <button class="btn btn-primary" onclick="showUserSearch()" style="margin-top: 1rem; width: auto;">Find Services â†’</button>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = bookings.map(b => `
+                    <div class="booking-item">
+                        <div class="booking-info">
+                            <h4 style="font-size: 1.1rem; margin-bottom: 0.25rem;">${b.workerName}</h4>
+                            <p style="color: var(--gray-600); font-size: 0.9rem;">${servicesData[b.service]?.displayName || b.service} â€¢ ${b.slot} â€¢ ${new Date(b.createdAt).toLocaleDateString()}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <span class="booking-status status-${b.status}">${b.status.toUpperCase()}</span>
+                            <div style="margin-top: 0.5rem; font-weight: 700; color: var(--success); font-size: 1.1rem;">â‚¹${b.price}</div>
+                            ${b.status === 'completed' && !b.reviewed ? `<button onclick="openReviewModal('${b._id}')" class="btn btn-primary" style="margin-top: 0.5rem; padding: 0.5rem 1rem; font-size: 0.85rem;">â­ Review</button>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                showToast('Failed to load bookings', 'error');
+            }
+        }
+
+        async function loadWorkerDashboard() {
+            if (!currentUser.workerId) return;
+            try {
+                const bookings = await apiCall(`/bookings/worker/${currentUser.workerId}`);
+                const worker = await apiCall(`/workers/${currentUser.workerId}`);
+
+                if (worker) {
+                    document.getElementById('workerEarnings').textContent = (worker.earnings || 0).toLocaleString();
+                    document.getElementById('workerTotalBookings').textContent = worker.totalBookings || 0;
+                    document.getElementById('workerTodayBookings').textContent = bookings.filter(b => b.status === 'confirmed' && new Date(b.createdAt).toDateString() === new Date().toDateString()).length;
+                    document.getElementById('workerRating').textContent = (worker.rating || 0).toFixed(1);
+
+                    const toggle = document.querySelector('.toggle-switch');
+                    if (toggle) toggle.classList.toggle('active', worker.available);
+                }
+
+                const container = document.getElementById('workerBookingsList');
+                if (bookings.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state" style="padding: 2rem;">
+                            <div class="empty-state-icon">ðŸ“‹</div>
+                            <h3>No bookings yet</h3>
+                            <p style="color: var(--gray-600);">Stay active to receive bookings!</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = bookings.map(b => `
+                    <div class="booking-item">
+                        <div class="booking-info">
+                            <h4 style="font-size: 1.1rem; margin-bottom: 0.25rem;">${b.userName}</h4>
+                            <p style="color: var(--gray-600); font-size: 0.9rem;">${servicesData[b.service]?.displayName || b.service} â€¢ ${b.slot}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <span class="booking-status status-${b.status}">${b.status.toUpperCase()}</span>
+                            <div style="margin-top: 0.5rem; font-weight: 700; font-size: 1.1rem;">â‚¹${b.price}</div>
+                            ${b.status === 'confirmed' ? `<button onclick="completeBooking('${b._id}')" class="btn btn-primary" style="margin-top: 0.5rem; padding: 0.5rem 1rem; font-size: 0.85rem;">âœ“ Complete</button>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                showToast('Failed to load dashboard', 'error');
+            }
+        }
+
+        async function toggleAvailability() {
+            try {
+                const result = await apiCall(`/workers/${currentUser.workerId}/availability`, { method: 'PATCH' });
+                const toggle = document.querySelector('.toggle-switch');
+                if (toggle) toggle.classList.toggle('active', result.available);
+                showToast(result.available ? 'ðŸŸ¢ You are now available for bookings!' : 'ðŸ”´ You are now offline', 'info');
+            } catch (error) {
+                showToast('Failed to toggle availability', 'error');
+            }
+        }
+
+        async function completeBooking(bookingId) {
+            try {
+                await apiCall(`/bookings/${bookingId}/status`, { method: 'PATCH', body: JSON.stringify({ status: 'completed' }) });
+                showToast('âœ… Service marked as completed!', 'success');
+                loadWorkerDashboard();
+            } catch (error) {
+                showToast('Failed to complete booking', 'error');
+            }
+        }
+
+        // ==================== REVIEWS ====================
+        function openReviewModal(bookingId) {
+            currentReviewBooking = bookingId;
+            currentRating = 0;
+            document.querySelectorAll('.review-star').forEach(s => s.style.color = 'var(--gray-200)');
+            document.getElementById('reviewText').value = '';
+            document.getElementById('reviewModal').classList.add('active');
+        }
+
+        function closeReviewModal() { document.getElementById('reviewModal').classList.remove('active'); }
+
+        function setRating(rating) {
+            currentRating = rating;
+            document.querySelectorAll('.review-star').forEach((star, index) => {
+                star.style.color = index < rating ? '#fbbf24' : 'var(--gray-200)';
+                star.style.transform = index < rating ? 'scale(1.2)' : 'scale(1)';
+            });
+        }
+
+        async function submitReview() {
+            if (currentRating === 0) { showToast('Please select a rating', 'error'); return; }
+            try {
+                await apiCall('/reviews', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        bookingId: currentReviewBooking,
+                        userId: currentUser.id || currentUser._id,
+                        rating: currentRating,
+                        comment: document.getElementById('reviewText').value
+                    })
+                });
+                showToast('Thank you for your review! ★', 'success');
+                closeReviewModal();
+                loadUserDashboard();
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        }
+
+        // ==================== ADMIN ====================
+        async function loadAdminData() {
+            try {
+                const stats = await apiCall('/admin/stats');
+                document.getElementById('adminTotalUsers').textContent = stats.totalUsers;
+                document.getElementById('adminTotalWorkers').textContent = stats.totalWorkers;
+                document.getElementById('adminTotalBookings').textContent = stats.totalBookings;
+                document.getElementById('adminPendingVerifications').textContent = stats.pendingVerifications;
+                showAdminTab('workers');
+            } catch (error) {
+                showToast('Failed to load admin data', 'error');
+            }
+        }
+
+        async function showAdminTab(tab) {
+            // Update active tab
+            document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+
+            const header = document.getElementById('adminTableHeader');
+            const body = document.getElementById('adminTableBody');
+
+            try {
+                switch (tab) {
+                    case 'workers':
+                        const workers = await apiCall('/admin/workers');
+                        header.innerHTML = `<tr><th>Provider</th><th>Service</th><th>Contact</th><th>Rating</th><th>Status</th><th>Actions</th></tr>`;
+                        body.innerHTML = workers.map(w => `
+                            <tr>
+                                <td>
+                                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                        <img src="${w.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(w.name)}&size=32`}" style="width: 36px; height: 36px; border-radius: 50%;">
+                                        <div>
+                                            <div style="font-weight: 600;">${w.name}</div>
+                                            <div style="font-size: 0.8rem; color: var(--gray-600);">${w.categories?.slice(0, 2).join(', ') || ''}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>${servicesData[w.service]?.displayName || w.service}</td>
+                                <td>${w.phone}</td>
+                                <td>â­ ${w.rating.toFixed(1)}</td>
+                                <td><span class="booking-status ${w.verified ? 'status-completed' : 'status-confirmed'}">${w.verified ? 'âœ“ Verified' : 'â³ Pending'}</span></td>
+                                <td>
+                                    ${!w.verified ? `<button class="btn-small btn-verify" onclick="verifyWorker('${w._id}')">Verify</button>` : ''}
+                                    <button class="btn-small btn-delete" onclick="deleteWorker('${w._id}')">Delete</button>
+                                </td>
+                            </tr>
+                        `).join('');
+                        break;
+
+                    case 'users':
+                        const users = await apiCall('/admin/users');
+                        header.innerHTML = `<tr><th>Name</th><th>Phone</th><th>Role</th><th>Actions</th></tr>`;
+                        body.innerHTML = users.map(u => `
+                            <tr>
+                                <td>${u.name}</td>
+                                <td>${u.phone}</td>
+                                <td><span class="badge" style="background: ${u.role === 'admin' ? 'var(--primary)' : u.role === 'worker' ? 'var(--success)' : 'var(--warning)'}; color: white;">${u.role}</span></td>
+                                <td>${u.role !== 'admin' ? `<button class="btn-small btn-delete" onclick="deleteUser('${u._id}')">Delete</button>` : '-'}</td>
+                            </tr>
+                        `).join('');
+                        break;
+
+                    case 'bookings':
+                        const bookings = await apiCall('/admin/bookings');
+                        header.innerHTML = `<tr><th>Customer</th><th>Provider</th><th>Service</th><th>Amount</th><th>Status</th></tr>`;
+                        body.innerHTML = bookings.map(b => `
+                            <tr>
+                                <td>${b.userName}</td>
+                                <td>${b.workerName}</td>
+                                <td>${servicesData[b.service]?.displayName || b.service}</td>
+                                <td style="font-weight: 700; color: var(--success);">â‚¹${b.price}</td>
+                                <td><span class="booking-status status-${b.status}">${b.status.toUpperCase()}</span></td>
+                            </tr>
+                        `).join('');
+                        break;
+                }
+            } catch (error) {
+                showToast('Failed to load data', 'error');
+            }
+        }
+
+        async function verifyWorker(id) {
+            try {
+                await apiCall(`/admin/workers/${id}/verify`, { method: 'PATCH' });
+                showToast('Worker verified successfully! âœ…', 'success');
+                // Refresh current tab
+                const activeTab = document.querySelector('.admin-tab.active');
+                if (activeTab) activeTab.click();
+            } catch (error) {
+                showToast('Failed to verify worker', 'error');
+            }
+        }
+
+        async function deleteWorker(id) {
+            if (!confirm('Are you sure you want to delete this worker?')) return;
+            try {
+                await apiCall(`/admin/workers/${id}`, { method: 'DELETE' });
+                showToast('Worker deleted', 'info');
+                const activeTab = document.querySelector('.admin-tab.active');
+                if (activeTab) activeTab.click();
+            } catch (error) {
+                showToast('Failed to delete worker', 'error');
+            }
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('Are you sure you want to delete this user?')) return;
+            try {
+                await apiCall(`/admin/users/${id}`, { method: 'DELETE' });
+                showToast('User deleted', 'info');
+                const activeTab = document.querySelector('.admin-tab.active');
+                if (activeTab) activeTab.click();
+            } catch (error) {
+                showToast('Failed to delete user', 'error');
+            }
+        }
+
+        async function showAddServiceModal() {
+            const name = prompt('Enter service key (e.g., plumber):');
+            if (!name) return;
+            const displayName = prompt('Display name:');
+            if (!displayName) return;
+            const icon = prompt('Emoji icon:', '🔧');
+            try {
+                await apiCall('/admin/services', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: name.toLowerCase().replace(/\s+/g, '_'),
+                        displayName,
+                        icon: icon || '🔧',
+                        categories: []
+                    })
+                });
+                showToast('Service added successfully! 🎉', 'success');
+                await loadServiceTypes();
+                populateServiceTypes();
+            } catch (error) {
+                showToast('Failed to add service', 'error');
+            }
+        }
+
+        // ==================== UTILITY ====================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            const icons = { success: '✅', error: '❌', info: 'ℹ️', warning: '⚠️' };
+            toast.innerHTML = `<span style="font-size: 1.5rem;">${icons[type]}</span><span style="font-weight: 600;">${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.animation = 'slideInRight 0.4s ease reverse';
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#serviceSearch')) {
+                document.getElementById('serviceListContainer').style.display = 'none';
+            }
+            if (!e.target.closest('#searchServiceInput')) {
+                document.getElementById('serviceSearchDropdown').style.display = 'none';
+            }
+        });
+    </script>
+</body>
+
+</html>

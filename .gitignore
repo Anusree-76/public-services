@@ -1,0 +1,10 @@
+*.db
+*.pyc
+__pycache__/
+.env
+*.log
+fix_*.py
+check_*.py
+delete_*.py
+.vscode/
+models/
