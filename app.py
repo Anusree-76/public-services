@@ -210,26 +210,34 @@ def login():
     
     conn = get_db_connection()
     try:
+        # For Admin, strict check
         if role == 'admin':
             user = conn.execute('SELECT * FROM users WHERE role = ? AND password = ? AND LOWER(name) = LOWER(?)', 
                                 (role, password, name)).fetchone()
+            if not user:
+                return jsonify({'error': 'Invalid admin credentials'}), 401
         else:
-            query = 'SELECT * FROM users WHERE role = ? AND password = ? AND ('
-            params = [role, password]
-            conds = []
-            if email:
-                conds.append('email = ?')
-                params.append(email)
-            if phone:
-                conds.append('phone = ?')
-                params.append(phone)
-            query += ' OR '.join(conds) + ')'
-            user = conn.execute(query, params).fetchone()
+            # For Users/Workers, find by phone
+            user = conn.execute('SELECT * FROM users WHERE role = ? AND phone = ?', (role, phone)).fetchone()
             
-        if user:
-            return jsonify({'success': True, 'user': {'id': user['id'], 'name': user['name'], 'email': user['email'], 'role': user['role']}})
-        else:
-            return jsonify({'error': 'Invalid credentials'}), 401
+            # Auto-register if not exists (since we removed OTP/verification)
+            if not user and name and phone:
+                user_id = 'user_' + str(uuid.uuid4().hex)
+                conn.execute('''
+                    INSERT INTO users (id, name, email, phone, password, role)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (user_id, name, email, phone, password or 'Password@123', role))
+                conn.commit()
+                user = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+            
+            if not user:
+                return jsonify({'error': 'User not found. Please register.'}), 404
+
+        return jsonify({
+            'success': True, 
+            'token': str(uuid.uuid4().hex),
+            'user': {'id': user['id'], '_id': user['id'], 'name': user['name'], 'email': user['email'], 'role': user['role']}
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
