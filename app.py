@@ -208,6 +208,7 @@ def login():
     phone = data.get('phone')
     name = data.get('name')
     
+    logging.info(f"Login request: role={role}, phone={phone}, name={name}")
     conn = get_db_connection()
     try:
         # For Admin, strict check
