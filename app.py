@@ -8,12 +8,31 @@ import uuid
 import os
 import math
 
+try:
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+    HAS_POSTGRES = True
+except ImportError:
+    HAS_POSTGRES = False
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = Flask(__name__, static_folder='public', static_url_path='')
 CORS(app)
 
-DB_FILE = 'service_finder.db'
+def get_db_connection():
+    if IS_POSTGRES:
+        conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+        return conn
+    else:
+        conn = sqlite3.connect('service_finder.db')
+        conn.row_factory = sqlite3.Row
+        return conn
+
+def db_execute(conn, query, params=None):
+    cur = conn.cursor()
+    cur.execute(qry(query), params or ())
+    return cur
 
 def haversine(lat1, lon1, lat2, lon2):
     if not (lat1 and lon1 and lat2 and lon2): return 0
@@ -23,6 +42,12 @@ def haversine(lat1, lon1, lat2, lon2):
     a = math.sin(dlat/2)**2 + math.cos(math.radians(float(lat1))) * math.cos(math.radians(float(lat2))) * math.sin(dlon/2)**2
     c = 2 * math.asin(math.sqrt(a))
     return R * c
+
+# Adapt query placeholder based on DB type
+def qry(q):
+    if IS_POSTGRES:
+        return q.replace('?', '%s')
+    return q
 
 # Initial Services Seed Data
 DEFAULT_SERVICES = [
@@ -37,105 +62,49 @@ DEFAULT_SERVICES = [
     {'key': 'other', 'displayName': 'Others', 'icon': '🔧', 'categories': json.dumps(['Maintenance', 'Misc'])}
 ]
 
-def get_db_connection():
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    return conn
-
 def init_db():
     conn = get_db_connection()
-    c = conn.cursor()
-    
-    # Create Tables
-    c.executescript('''
-        CREATE TABLE IF NOT EXISTS users (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            email TEXT,
-            phone TEXT,
-            password TEXT NOT NULL,
-            role TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
+    try:
+        if IS_POSTGRES:
+            # Create Tables for Postgres
+            db_execute(conn, '''
+                CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT, phone TEXT, password TEXT NOT NULL, role TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+                CREATE TABLE IF NOT EXISTS services (key TEXT PRIMARY KEY, display_name TEXT NOT NULL, icon TEXT, categories TEXT, is_custom INTEGER DEFAULT 0);
+                CREATE TABLE IF NOT EXISTS workers (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, service TEXT NOT NULL, cost REAL, lat REAL, lng REAL, bio TEXT, verified INTEGER DEFAULT 1, gender TEXT, experience INTEGER DEFAULT 0, rating REAL DEFAULT 0, total_reviews INTEGER DEFAULT 0, slots TEXT, FOREIGN KEY(user_id) REFERENCES users(id), FOREIGN KEY(service) REFERENCES services(key));
+                CREATE TABLE IF NOT EXISTS bookings (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, worker_id TEXT NOT NULL, service_key TEXT NOT NULL, slot TEXT, price REAL, status TEXT DEFAULT 'confirmed', address TEXT, lat REAL, lng REAL, notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(user_id) REFERENCES users(id), FOREIGN KEY(worker_id) REFERENCES workers(id));
+                CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, booking_id TEXT NOT NULL, user_id TEXT NOT NULL, worker_id TEXT NOT NULL, rating REAL, comments TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(booking_id) REFERENCES bookings(id), FOREIGN KEY(user_id) REFERENCES users(id), FOREIGN KEY(worker_id) REFERENCES workers(id));
+            ''')
+        else:
+            # SQLite Tables
+            conn.executescript('''
+                CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT, phone TEXT, password TEXT NOT NULL, role TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+                CREATE TABLE IF NOT EXISTS services (key TEXT PRIMARY KEY, display_name TEXT NOT NULL, icon TEXT, categories TEXT, is_custom INTEGER DEFAULT 0);
+                CREATE TABLE IF NOT EXISTS workers (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, service TEXT NOT NULL, cost REAL, lat REAL, lng REAL, bio TEXT, verified INTEGER DEFAULT 1, gender TEXT, experience INTEGER DEFAULT 0, rating REAL DEFAULT 0, total_reviews INTEGER DEFAULT 0, slots TEXT, FOREIGN KEY(user_id) REFERENCES users(id), FOREIGN KEY(service) REFERENCES services(key));
+                CREATE TABLE IF NOT EXISTS bookings (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, worker_id TEXT NOT NULL, service_key TEXT NOT NULL, slot TEXT, price REAL, status TEXT DEFAULT 'confirmed', address TEXT, lat REAL, lng REAL, notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(user_id) REFERENCES users(id), FOREIGN KEY(worker_id) REFERENCES workers(id));
+                CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, booking_id TEXT NOT NULL, user_id TEXT NOT NULL, worker_id TEXT NOT NULL, rating REAL, comments TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(booking_id) REFERENCES bookings(id), FOREIGN KEY(user_id) REFERENCES users(id), FOREIGN KEY(worker_id) REFERENCES workers(id));
+            ''')
         
-        CREATE TABLE IF NOT EXISTS services (
-            key TEXT PRIMARY KEY,
-            display_name TEXT NOT NULL,
-            icon TEXT,
-            categories TEXT,
-            is_custom INTEGER DEFAULT 0
-        );
-
-        CREATE TABLE IF NOT EXISTS workers (
-            id TEXT PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            service TEXT NOT NULL,
-            cost REAL,
-            lat REAL,
-            lng REAL,
-            bio TEXT,
-            verified INTEGER DEFAULT 1,
-            gender TEXT,
-            experience INTEGER DEFAULT 0,
-            rating REAL DEFAULT 0,
-            total_reviews INTEGER DEFAULT 0,
-            slots TEXT,
-            FOREIGN KEY(user_id) REFERENCES users(id),
-            FOREIGN KEY(service) REFERENCES services(key)
-        );
-
-        CREATE TABLE IF NOT EXISTS bookings (
-            id TEXT PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            worker_id TEXT NOT NULL,
-            service_key TEXT NOT NULL,
-            slot TEXT,
-            price REAL,
-            status TEXT DEFAULT 'confirmed',
-            address TEXT,
-            lat REAL,
-            lng REAL,
-            notes TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(user_id) REFERENCES users(id),
-            FOREIGN KEY(worker_id) REFERENCES workers(id)
-        );
+        # Seed Services if empty
+        if db_execute(conn, 'SELECT COUNT(*) FROM services').fetchone()[0 if IS_POSTGRES else 'COUNT(*)'] == 0:
+            for s in DEFAULT_SERVICES:
+                db_execute(conn, 'INSERT INTO services (key, display_name, icon, categories) VALUES (?, ?, ?, ?)', 
+                          (s['key'], s['displayName'], s['icon'], s['categories']))
         
-        CREATE TABLE IF NOT EXISTS reviews (
-            id TEXT PRIMARY KEY,
-            booking_id TEXT NOT NULL,
-            user_id TEXT NOT NULL,
-            worker_id TEXT NOT NULL,
-            rating REAL,
-            comments TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(booking_id) REFERENCES bookings(id),
-            FOREIGN KEY(user_id) REFERENCES users(id),
-            FOREIGN KEY(worker_id) REFERENCES workers(id)
-        );
-    ''')
-    
-    # Seed Services if empty
-    c.execute('SELECT COUNT(*) FROM services')
-    if c.fetchone()[0] == 0:
-        c.executemany(
-            'INSERT INTO services (key, display_name, icon, categories) VALUES (:key, :displayName, :icon, :categories)',
-            DEFAULT_SERVICES
-        )
-    
-    # Seed Admin User if not exists
-    c.execute("SELECT COUNT(*) FROM users WHERE id = 'admin_1'")
-    if c.fetchone()[0] == 0:
-        c.execute('''
-            INSERT INTO users (id, name, email, phone, password, role) 
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', ('admin_1', 'Admin', 'admin@smartlocal.com', '0000000000', 'Admin@123', 'admin'))
-        
-    conn.commit()
-    conn.close()
+        # Seed Admin User if not exists
+        if db_execute(conn, "SELECT COUNT(*) FROM users WHERE id = ?", ('admin_1',)).fetchone()[0 if IS_POSTGRES else 'COUNT(*)'] == 0:
+            db_execute(conn, '''
+                INSERT INTO users (id, name, email, phone, password, role) 
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', ('admin_1', 'Admin', 'admin@smartlocal.com', '0000000000', 'Admin@123', 'admin'))
+            
+        conn.commit()
+    except Exception as e:
+        print(f"Error initializing db: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
     print("Database initialized successfully.")
 
-# Initialize the db on startup
 init_db()
 
 # --- ROUTES ---
@@ -147,7 +116,7 @@ def serve_index():
 @app.route('/api/services', methods=['GET'])
 def get_services():
     conn = get_db_connection()
-    services = conn.execute('SELECT * FROM services').fetchall()
+    services = db_execute(conn, 'SELECT * FROM services').fetchall()
     conn.close()
     
     result = []
@@ -166,7 +135,7 @@ def add_service():
     data = request.json
     conn = get_db_connection()
     try:
-        conn.execute('''
+        db_execute(conn, '''
             INSERT INTO services (key, display_name, icon, categories, is_custom) 
             VALUES (?, ?, ?, ?, ?)
         ''', (data['name'], data['displayName'], data.get('icon', '🔧'), json.dumps(data.get('categories', [])), 1))
@@ -185,11 +154,11 @@ def register_user():
     conn = get_db_connection()
     try:
         # Check if user exists
-        existing = conn.execute('SELECT id FROM users WHERE phone = ? OR email = ?', (data.get('phone'), data.get('email'))).fetchone()
+        existing = db_execute(conn, 'SELECT id FROM users WHERE phone = ? OR email = ?', (data.get('phone'), data.get('email'))).fetchone()
         if existing:
             return jsonify({'error': 'User already exists with this phone or email.'}), 400
             
-        conn.execute('''
+        db_execute(conn, '''
             INSERT INTO users (id, name, email, phone, password, role)
             VALUES (?, ?, ?, ?, ?, ?)
         ''', (user_id, data['name'], data.get('email'), data.get('phone'), data['password'], data['role']))
@@ -215,23 +184,23 @@ def login():
     try:
         # For Admin, strict check
         if role == 'admin':
-            user = conn.execute('SELECT * FROM users WHERE role = ? AND password = ? AND LOWER(name) = LOWER(?)', 
+            user = db_execute(conn, 'SELECT * FROM users WHERE role = ? AND password = ? AND LOWER(name) = LOWER(?)', 
                                 (role, password, name)).fetchone()
             if not user:
                 return jsonify({'error': 'Invalid admin credentials'}), 401
         else:
             # For Users/Workers, find by phone
-            user = conn.execute('SELECT * FROM users WHERE role = ? AND phone = ?', (role, phone)).fetchone()
+            user = db_execute(conn, 'SELECT * FROM users WHERE role = ? AND phone = ?', (role, phone)).fetchone()
             
             # Auto-register if not exists (since we removed OTP/verification)
             if not user and name and phone:
                 user_id = 'user_' + str(uuid.uuid4().hex)
-                conn.execute('''
+                db_execute(conn, '''
                     INSERT INTO users (id, name, email, phone, password, role)
                     VALUES (?, ?, ?, ?, ?, ?)
                 ''', (user_id, name, email, phone, password or 'Password@123', role))
                 conn.commit()
-                user = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+                user = db_execute(conn, 'SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
             
             if not user:
                 return jsonify({'error': 'User not found. Please register.'}), 404
@@ -241,7 +210,7 @@ def login():
         
         # If worker, attach workerId
         if role == 'worker':
-            w = conn.execute('SELECT id FROM workers WHERE user_id = ?', (user['id'],)).fetchone()
+            w = db_execute(conn, 'SELECT id FROM workers WHERE user_id = ?', (user['id'],)).fetchone()
             if w:
                 user_res['workerId'] = w['id']
 
@@ -265,24 +234,23 @@ def check_duplicate():
     conn = get_db_connection()
     try:
         if service:
-            res = conn.execute('''
-                SELECT COUNT(*) FROM users u
+            res = db_execute(conn, '''
+                SELECT COUNT(*) as cnt FROM users u
                 JOIN workers w ON u.id = w.user_id
                 WHERE (u.phone = ? OR LOWER(u.name) = LOWER(?)) AND w.service = ?
             ''', (phone, name, service)).fetchone()
-            return jsonify({'exists': res[0] > 0})
+            return jsonify({'exists': res['cnt'] > 0})
             
-        res = conn.execute('''
-            SELECT COUNT(*) FROM users 
+        res = db_execute(conn, '''
+            SELECT COUNT(*) as cnt FROM users 
             WHERE phone = ? OR LOWER(name) = LOWER(?) OR (email != '' AND LOWER(email) = LOWER(?))
         ''', (phone, name, email)).fetchone()
         
-        return jsonify({'exists': res[0] > 0})
+        return jsonify({'exists': res['cnt'] > 0})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     finally:
         conn.close()
-
 
 @app.route('/api/workers/register', methods=['POST'])
 def register_worker():
@@ -293,19 +261,19 @@ def register_worker():
     conn = get_db_connection()
     try:
         # 1. User setup
-        user = conn.execute('SELECT id FROM users WHERE phone = ?', (user_data.get('phone'),)).fetchone()
+        user = db_execute(conn, 'SELECT id FROM users WHERE phone = ?', (user_data.get('phone'),)).fetchone()
         if user:
             user_id = user['id']
         else:
             user_id = 'user_' + str(uuid.uuid4().hex)
-            conn.execute('''
+            db_execute(conn, '''
                 INSERT INTO users (id, name, email, phone, password, role)
                 VALUES (?, ?, ?, ?, ?, ?)
             ''', (user_id, user_data.get('name'), user_data.get('email'), user_data.get('phone'), user_data.get('password'), 'worker'))
             
         # 2. Worker setup
         worker_id = 'worker_' + str(uuid.uuid4().hex)
-        conn.execute('''
+        db_execute(conn, '''
             INSERT INTO workers (id, user_id, service, cost, lat, lng, bio, gender, experience, slots)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (worker_id, user_id, worker_data.get('service'), worker_data.get('cost'), 
@@ -348,30 +316,34 @@ def get_workers():
             params.append('%' + service + '%')
             params.append('%' + service + '%')
             
-        workers = conn.execute(query, params).fetchall()
+        workers = db_execute(conn, query, params).fetchall()
         
         result = []
         for w in workers:
-            dist = haversine(lat, lng, w['lat'], w['lng']) if lat and lng else 0
-            result.append({
-                'id': w['id'],
-                '_id': w['id'],
-                'userId': w['user_id'],
-                'service': w['service'],
-                'cost': w['cost'],
-                'lat': w['lat'],
-                'lng': w['lng'],
-                'bio': w['bio'],
-                'verified': bool(w['verified']),
-                'gender': w['gender'],
-                'experience': w['experience'],
-                'rating': w['rating'],
-                'totalReviews': w['total_reviews'],
-                'name': w['name'],
-                'phone': w['phone'],
-                'distance': round(dist, 1),
-                'slots': json.loads(w['slots'] or '{}')
-            })
+            try:
+                dist = haversine(lat, lng, w['lat'], w['lng']) if lat and lng else 0
+                result.append({
+                    'id': w['id'],
+                    '_id': w['id'],
+                    'userId': w['user_id'],
+                    'service': w['service'],
+                    'cost': w['cost'],
+                    'lat': w['lat'],
+                    'lng': w['lng'],
+                    'bio': w['bio'],
+                    'verified': bool(w['verified']),
+                    'gender': w['gender'],
+                    'experience': w['experience'],
+                    'rating': w['rating'],
+                    'totalReviews': w['total_reviews'],
+                    'name': w['name'],
+                    'phone': w['phone'],
+                    'distance': round(dist, 1),
+                    'slots': json.loads(w['slots'] or '{}')
+                })
+            except Exception as row_error:
+                logging.warning(f"Error processing worker row: {row_error}")
+                continue
         return jsonify(result)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -382,7 +354,7 @@ def get_workers():
 def get_worker(worker_id):
     conn = get_db_connection()
     try:
-        worker = conn.execute('''
+        worker = db_execute(conn, '''
             SELECT w.*, u.name, u.phone, u.email 
             FROM workers w
             JOIN users u ON w.user_id = u.id
@@ -392,7 +364,7 @@ def get_worker(worker_id):
         if not worker:
             return jsonify({'error': 'Worker not found'}), 404
             
-        stats = conn.execute('''
+        stats = db_execute(conn, '''
             SELECT COUNT(*) as bookings, SUM(price) as earnings
             FROM bookings
             WHERE worker_id = ? AND status = 'completed'
@@ -426,7 +398,6 @@ def get_worker(worker_id):
 
 @app.route('/api/workers/<worker_id>/availability', methods=['PATCH'])
 def toggle_availability(worker_id):
-    # Quick fix for availability toggle
     return jsonify({'success': True, 'available': True})
 
 @app.route('/api/bookings', methods=['POST'])
@@ -437,7 +408,7 @@ def create_booking():
     
     conn = get_db_connection()
     try:
-        conn.execute('''
+        db_execute(conn, '''
             INSERT INTO bookings (id, user_id, worker_id, service_key, slot, price, address, lat, lng, notes)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (booking_id, data.get('userId'), data.get('workerId'), data.get('service'), data.get('slot'), 
@@ -456,7 +427,7 @@ def get_user_bookings():
     user_id = request.args.get('userId')
     conn = get_db_connection()
     try:
-        bookings = conn.execute('''
+        bookings = db_execute(conn, '''
             SELECT b.*, u.name as worker_name
             FROM bookings b
             JOIN workers w ON b.worker_id = w.id
@@ -486,7 +457,7 @@ def get_user_bookings():
 def get_worker_bookings(worker_id):
     conn = get_db_connection()
     try:
-        bookings = conn.execute('''
+        bookings = db_execute(conn, '''
             SELECT b.*, u.name as user_name
             FROM bookings b
             JOIN users u ON b.user_id = u.id
@@ -516,7 +487,7 @@ def update_booking_status(booking_id):
     data = request.json
     conn = get_db_connection()
     try:
-        conn.execute('UPDATE bookings SET status = ? WHERE id = ?', (data.get('status'), booking_id))
+        db_execute(conn, 'UPDATE bookings SET status = ? WHERE id = ?', (data.get('status'), booking_id))
         conn.commit()
         return jsonify({'success': True})
     except Exception as e:
@@ -529,10 +500,10 @@ def update_booking_status(booking_id):
 def get_admin_stats():
     conn = get_db_connection()
     try:
-        users = conn.execute('SELECT COUNT(*) FROM users').fetchone()[0]
-        workers = conn.execute('SELECT COUNT(*) FROM workers').fetchone()[0]
-        bookings = conn.execute('SELECT COUNT(*) FROM bookings').fetchone()[0]
-        earnings = conn.execute("SELECT SUM(price) FROM bookings WHERE status = 'completed'").fetchone()[0] or 0
+        users = db_execute(conn, 'SELECT COUNT(*) as cnt FROM users').fetchone()['cnt']
+        workers = db_execute(conn, 'SELECT COUNT(*) as cnt FROM workers').fetchone()['cnt']
+        bookings = db_execute(conn, 'SELECT COUNT(*) as cnt FROM bookings').fetchone()['cnt']
+        earnings = db_execute(conn, "SELECT SUM(price) as total FROM bookings WHERE status = 'completed'").fetchone()['total'] or 0
         
         return jsonify({
             'totalUsers': users,
@@ -550,7 +521,7 @@ def get_admin_stats():
 def get_all_bookings():
     conn = get_db_connection()
     try:
-        bookings = conn.execute('''
+        bookings = db_execute(conn, '''
             SELECT b.*, u.name as user_name
             FROM bookings b
             JOIN users u ON b.user_id = u.id
@@ -579,7 +550,7 @@ def get_all_bookings():
 def get_all_users():
     conn = get_db_connection()
     try:
-        users = conn.execute('SELECT * FROM users ORDER BY created_at DESC').fetchall()
+        users = db_execute(conn, 'SELECT * FROM users ORDER BY created_at DESC').fetchall()
         res = []
         for u in users:
             res.append({
@@ -600,13 +571,12 @@ def get_all_users():
 def delete_user(user_id):
     conn = get_db_connection()
     try:
-        # Cascade delete workers and bookings associated with user
-        conn.execute('DELETE FROM bookings WHERE user_id = ?', (user_id,))
-        workers = conn.execute('SELECT id FROM workers WHERE user_id = ?', (user_id,)).fetchall()
+        db_execute(conn, 'DELETE FROM bookings WHERE user_id = ?', (user_id,))
+        workers = db_execute(conn, 'SELECT id FROM workers WHERE user_id = ?', (user_id,)).fetchall()
         for w in workers:
-            conn.execute('DELETE FROM bookings WHERE worker_id = ?', (w['id'],))
-        conn.execute('DELETE FROM workers WHERE user_id = ?', (user_id,))
-        conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+            db_execute(conn, 'DELETE FROM bookings WHERE worker_id = ?', (w['id'],))
+        db_execute(conn, 'DELETE FROM workers WHERE user_id = ?', (user_id,))
+        db_execute(conn, 'DELETE FROM users WHERE id = ?', (user_id,))
         conn.commit()
         return jsonify({'success': True})
     except Exception as e:
@@ -619,8 +589,8 @@ def delete_user(user_id):
 def delete_worker(worker_id):
     conn = get_db_connection()
     try:
-        conn.execute('DELETE FROM bookings WHERE worker_id = ?', (worker_id,))
-        conn.execute('DELETE FROM workers WHERE id = ?', (worker_id,))
+        db_execute(conn, 'DELETE FROM bookings WHERE worker_id = ?', (worker_id,))
+        db_execute(conn, 'DELETE FROM workers WHERE id = ?', (worker_id,))
         conn.commit()
         return jsonify({'success': True})
     except Exception as e:
@@ -629,10 +599,9 @@ def delete_worker(worker_id):
     finally:
         conn.close()
 
-
-
 if __name__ == '__main__':
-    print("Starting Flask server with SQLite DB...")
+    mode = "PostgreSQL" if IS_POSTGRES else "SQLite"
+    print(f"Starting Flask server with {mode} DB...")
     port = int(os.environ.get('PORT', 80))
     app.run(host='0.0.0.0', port=port, debug=False)
 

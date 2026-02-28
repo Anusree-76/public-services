@@ -1,3 +1,7 @@
+databases:
+  - name: service-finder-db
+    plan: free
+
 services:
   - type: web
     name: smartlocal-service-finder
@@ -5,5 +9,9 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: service-finder-db
+          property: connectionString
       - key: PYTHON_VERSION
         value: 3.11.0
