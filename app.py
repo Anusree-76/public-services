@@ -15,6 +15,9 @@ try:
 except ImportError:
     HAS_POSTGRES = False
 
+DATABASE_URL = os.environ.get('DATABASE_URL')
+IS_POSTGRES = HAS_POSTGRES and DATABASE_URL is not None
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = Flask(__name__, static_folder='public', static_url_path='')
@@ -25,7 +28,8 @@ def get_db_connection():
         conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
         return conn
     else:
-        conn = sqlite3.connect('service_finder.db')
+        db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'service_finder.db')
+        conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
         return conn
 
@@ -83,15 +87,21 @@ def init_db():
                 CREATE TABLE IF NOT EXISTS bookings (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, worker_id TEXT NOT NULL, service_key TEXT NOT NULL, slot TEXT, price REAL, status TEXT DEFAULT 'confirmed', address TEXT, lat REAL, lng REAL, notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(user_id) REFERENCES users(id), FOREIGN KEY(worker_id) REFERENCES workers(id));
                 CREATE TABLE IF NOT EXISTS reviews (id TEXT PRIMARY KEY, booking_id TEXT NOT NULL, user_id TEXT NOT NULL, worker_id TEXT NOT NULL, rating REAL, comments TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(booking_id) REFERENCES bookings(id), FOREIGN KEY(user_id) REFERENCES users(id), FOREIGN KEY(worker_id) REFERENCES workers(id));
             ''')
-        
+        # Add available column if it doesn't exist
+        try:
+            db_execute(conn, 'ALTER TABLE workers ADD COLUMN available INTEGER DEFAULT 1')
+            conn.commit()
+        except:
+            conn.rollback()
+            
         # Seed Services if empty
-        if db_execute(conn, 'SELECT COUNT(*) FROM services').fetchone()[0 if IS_POSTGRES else 'COUNT(*)'] == 0:
+        if db_execute(conn, 'SELECT COUNT(*) as cnt FROM services').fetchone()['cnt'] == 0:
             for s in DEFAULT_SERVICES:
                 db_execute(conn, 'INSERT INTO services (key, display_name, icon, categories) VALUES (?, ?, ?, ?)', 
                           (s['key'], s['displayName'], s['icon'], s['categories']))
         
         # Seed Admin User if not exists
-        if db_execute(conn, "SELECT COUNT(*) FROM users WHERE id = ?", ('admin_1',)).fetchone()[0 if IS_POSTGRES else 'COUNT(*)'] == 0:
+        if db_execute(conn, "SELECT COUNT(*) as cnt FROM users WHERE id = ?", ('admin_1',)).fetchone()['cnt'] == 0:
             db_execute(conn, '''
                 INSERT INTO users (id, name, email, phone, password, role) 
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -301,7 +311,7 @@ def get_workers():
             SELECT w.*, u.name, u.phone, u.email 
             FROM workers w
             JOIN users u ON w.user_id = u.id
-            WHERE w.verified = 1
+            WHERE w.verified = 1 AND (w.available IS NULL OR w.available = 1)
         '''
         params = []
         if service and service != 'all':
@@ -388,7 +398,7 @@ def get_worker(worker_id):
             'phone': worker['phone'],
             'earnings': stats['earnings'] or 0,
             'totalBookings': stats['bookings'] or 0,
-            'available': True,
+            'available': bool(worker['available'] if worker['available'] is not None else 1),
             'slots': json.loads(worker['slots'] or '{}')
         })
     except Exception as e:
@@ -398,7 +408,23 @@ def get_worker(worker_id):
 
 @app.route('/api/workers/<worker_id>/availability', methods=['PATCH'])
 def toggle_availability(worker_id):
-    return jsonify({'success': True, 'available': True})
+    conn = get_db_connection()
+    try:
+        worker = db_execute(conn, 'SELECT available FROM workers WHERE id = ?', (worker_id,)).fetchone()
+        if not worker:
+            return jsonify({'error': 'Worker not found'}), 404
+            
+        curr = worker['available'] if worker['available'] is not None else 1
+        new_avail = 0 if curr == 1 else 1
+        
+        db_execute(conn, 'UPDATE workers SET available = ? WHERE id = ?', (new_avail, worker_id))
+        conn.commit()
+        return jsonify({'success': True, 'available': bool(new_avail)})
+    except Exception as e:
+        conn.rollback()
+        return jsonify({'error': str(e)}), 500
+    finally:
+        conn.close()
 
 @app.route('/api/bookings', methods=['POST'])
 def create_booking():
